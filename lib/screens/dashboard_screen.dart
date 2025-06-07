@@ -1,8 +1,4 @@
 import 'package:flutter/material.dart';
-import 'tasks_screen.dart';
-import 'mood_scanner_screen.dart';
-import 'cosmogram_analysis_screen.dart';
-import 'profile_screen.dart';
 import '../main.dart'; // Dostęp do globalnego klucza ScaffoldMessenger
 
 class DashboardScreen extends StatelessWidget {
@@ -169,6 +165,8 @@ class DashboardScreen extends StatelessWidget {
                           onPressed: () {
                             // Logika oznaczenia zadania jako wykonane
                             MyApp.scaffoldMessengerKey.currentState
+                                ?.removeCurrentSnackBar();
+                            MyApp.scaffoldMessengerKey.currentState
                                 ?.showSnackBar(
                               SnackBar(
                                 content: Text(
@@ -273,102 +271,6 @@ class DashboardScreen extends StatelessWidget {
           ],
         ),
       ),
-      bottomNavigationBar: Container(
-        color: Color(0xFF1E293B),
-        padding: EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            NavIcon(
-              icon: Icons.dashboard,
-              label: 'Dashboard',
-              active: true,
-              onTap: () {
-                // Już jesteśmy na Dashboardzie, więc nie robimy nic
-              },
-            ),
-            NavIcon(
-              icon: Icons.task_alt,
-              label: 'Zadania',
-              active: false,
-              onTap: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => TasksScreen()),
-                );
-                MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
-                  SnackBar(
-                    content: Text('Przejście do: Zadania'),
-                    backgroundColor: Color(0xFFD4AF37),
-                    duration: Duration(seconds: 1),
-                  ),
-                );
-              },
-            ),
-            NavIcon(
-              icon: Icons.psychology,
-              label: 'Skaner',
-              active: false,
-              onTap: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => MoodScannerScreen()),
-                );
-                MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
-                  SnackBar(
-                    content: Text('Przejście do: Skaner Potrzeb'),
-                    backgroundColor: Color(0xFFD4AF37),
-                    duration: Duration(seconds: 1),
-                  ),
-                );
-              },
-            ),
-            NavIcon(
-              icon: Icons.stars,
-              label: 'Astrologia',
-              active: false,
-              onTap: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => CosmogramAnalysisScreen()),
-                );
-                MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
-                  SnackBar(
-                    content: Text('Przejście do: Analiza Kosmogramu'),
-                    backgroundColor: Color(0xFFD4AF37),
-                    duration: Duration(seconds: 1),
-                  ),
-                );
-              },
-            ),
-            NavIcon(
-              icon: Icons.person,
-              label: 'Profil',
-              active: false,
-              onTap: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ProfileScreen(
-                      nickname: nickname,
-                      birthDate: birthDate,
-                      birthPlace: birthPlace,
-                    ),
-                  ),
-                );
-                MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
-                  SnackBar(
-                    content: Text('Przejście do: Profil'),
-                    backgroundColor: Color(0xFFD4AF37),
-                    duration: Duration(seconds: 1),
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -407,36 +309,6 @@ class StatCard extends StatelessWidget {
                       fontWeight: FontWeight.bold)),
             ],
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class NavIcon extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool active;
-  final VoidCallback? onTap;
-
-  const NavIcon({
-    required this.icon,
-    required this.label,
-    this.active = false,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: active ? Colors.amber : Colors.white70, size: 24),
-          Text(label,
-              style: TextStyle(
-                  color: active ? Colors.amber : Colors.white70, fontSize: 12)),
         ],
       ),
     );

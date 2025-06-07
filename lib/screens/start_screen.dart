@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'profile_creation_screen.dart'; // Przekierowanie do tworzenia profilu
 import 'package:soul_manager/screens/main_screen.dart' as screens;
 import 'package:soul_manager/main.dart' as app;
-import 'package:soul_manager/screens/profile_creation_screen.dart';
 
 class StartScreen extends StatelessWidget {
   @override
@@ -73,6 +73,9 @@ class StartScreen extends StatelessWidget {
                       ),
                     ),
                   );
+                  // Czyszczenie poprzednich SnackBarów przed wyświetleniem nowego
+                  app.MyApp.scaffoldMessengerKey.currentState
+                      ?.removeCurrentSnackBar();
                   app.MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
                     SnackBar(
                       content: Text(
@@ -95,6 +98,9 @@ class StartScreen extends StatelessWidget {
                     MaterialPageRoute(
                         builder: (context) => ProfileCreationScreen()),
                   );
+                  // Czyszczenie poprzednich SnackBarów przed wyświetleniem nowego
+                  app.MyApp.scaffoldMessengerKey.currentState
+                      ?.removeCurrentSnackBar();
                   app.MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
                     SnackBar(
                       content: Text('Rozpocznij tworzenie profilu!'),

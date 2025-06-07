@@ -39,6 +39,8 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
           ),
         ),
       );
+      // Czyszczenie poprzednich SnackBarów przed wyświetleniem nowego
+      app.MyApp.scaffoldMessengerKey.currentState?.removeCurrentSnackBar();
       app.MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(
           content: Text('Profil utworzony! Witaj, $nickname!'),

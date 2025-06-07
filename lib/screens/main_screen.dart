@@ -70,6 +70,8 @@ class _MainScreenState extends State<MainScreen> {
       default:
         screenName = 'Nieznany ekran';
     }
+    // Czyszczenie poprzednich SnackBarów przed wyświetleniem nowego
+    MyApp.scaffoldMessengerKey.currentState?.removeCurrentSnackBar();
     MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(
         content: Text('Przejście do: $screenName'),
