@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'tasks_screen.dart';
+import 'mood_scanner_screen.dart';
+import 'cosmogram_analysis_screen.dart';
+import '../main.dart'; // Dostęp do globalnego klucza ScaffoldMessenger
 
 class DashboardScreen extends StatelessWidget {
   // Przykładowa funkcja generująca sentencję na dzień na podstawie ułożenia planet
@@ -25,10 +29,7 @@ class DashboardScreen extends StatelessWidget {
         title: Text(
           'Dashboard Maga',
           style: TextStyle(
-            fontFamily: 'Cinzel',
-            color: Colors.amber,
-            fontSize: 22,
-          ),
+              fontFamily: 'Cinzel', color: Colors.amber, fontSize: 22),
         ),
         backgroundColor: Color(0xFF1E293B),
         elevation: 0,
@@ -63,8 +64,7 @@ class DashboardScreen extends StatelessWidget {
                       border: Border.all(color: Colors.amber, width: 2),
                       image: DecorationImage(
                         image: AssetImage(
-                          'assets/avatar_placeholder.png',
-                        ), // Placeholder dla awatara
+                            'assets/avatar_placeholder.png'), // Placeholder dla awatara
                         fit: BoxFit.cover,
                       ),
                     ),
@@ -101,19 +101,17 @@ class DashboardScreen extends StatelessWidget {
                   Text(
                     'Aura Dnia',
                     style: TextStyle(
-                      color: Colors.amber,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                        color: Colors.amber,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold),
                   ),
                   SizedBox(height: 8),
                   LinearProgressIndicator(
                     value: 0.75, // Wartość przykładowa (75% energii)
                     minHeight: 12,
                     backgroundColor: Colors.grey.shade700,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Color(0xFFD4AF37),
-                    ),
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(Color(0xFFD4AF37)),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   SizedBox(height: 4),
@@ -130,8 +128,7 @@ class DashboardScreen extends StatelessWidget {
               child: Card(
                 color: Color(0xFF2C3E50),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                    borderRadius: BorderRadius.circular(12)),
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
@@ -140,10 +137,9 @@ class DashboardScreen extends StatelessWidget {
                       Text(
                         'Zadanie Dnia',
                         style: TextStyle(
-                          color: Colors.amber,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                            color: Colors.amber,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold),
                       ),
                       SizedBox(height: 8),
                       Text(
@@ -157,16 +153,22 @@ class DashboardScreen extends StatelessWidget {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Color(0xFFD4AF37),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
+                                borderRadius: BorderRadius.circular(8)),
                           ),
                           onPressed: () {
                             // Logika oznaczenia zadania jako wykonane
+                            MyApp.scaffoldMessengerKey.currentState
+                                ?.showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                    'Zadanie wykonane! Otrzymano +15 Energii Ziemi'),
+                                backgroundColor: Color(0xFFD4AF37),
+                                duration: Duration(seconds: 3),
+                              ),
+                            );
                           },
-                          child: Text(
-                            'Wykonaj',
-                            style: TextStyle(color: Colors.black),
-                          ),
+                          child: Text('Wykonaj',
+                              style: TextStyle(color: Colors.black)),
                         ),
                       ),
                     ],
@@ -180,10 +182,9 @@ class DashboardScreen extends StatelessWidget {
               child: Text(
                 'Szybkie Statystyki',
                 style: TextStyle(
-                  color: Colors.amber,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                    color: Colors.amber,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold),
               ),
             ),
             Padding(
@@ -193,10 +194,7 @@ class DashboardScreen extends StatelessWidget {
                 children: [
                   StatCard(icon: Icons.star, label: 'Punkty XP', value: '150'),
                   StatCard(
-                    icon: Icons.task_alt,
-                    label: 'Zadania',
-                    value: '3/5',
-                  ),
+                      icon: Icons.task_alt, label: 'Zadania', value: '3/5'),
                 ],
               ),
             ),
@@ -206,8 +204,7 @@ class DashboardScreen extends StatelessWidget {
               child: Card(
                 color: Color(0xFF2C3E50),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                    borderRadius: BorderRadius.circular(12)),
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
@@ -216,10 +213,9 @@ class DashboardScreen extends StatelessWidget {
                       Text(
                         'Wskazówka Astrologiczna',
                         style: TextStyle(
-                          color: Colors.amber,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                            color: Colors.amber,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold),
                       ),
                       SizedBox(height: 8),
                       Text(
@@ -237,8 +233,7 @@ class DashboardScreen extends StatelessWidget {
               child: Card(
                 color: Color(0xFF2C3E50),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                    borderRadius: BorderRadius.circular(12)),
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
@@ -247,24 +242,108 @@ class DashboardScreen extends StatelessWidget {
                       Text(
                         'Codzienna Refleksja',
                         style: TextStyle(
-                          color: Colors.amber,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                            color: Colors.amber,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold),
                       ),
                       SizedBox(height: 8),
                       Text(
                         getDailyReflection(),
                         style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontStyle: FontStyle.italic,
-                        ),
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontStyle: FontStyle.italic),
                       ),
                     ],
                   ),
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: Container(
+        color: Color(0xFF1E293B),
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            NavIcon(
+              icon: Icons.dashboard,
+              label: 'Dashboard',
+              active: true,
+              onTap: () {
+                // Już jesteśmy na Dashboardzie, więc nie robimy nic
+              },
+            ),
+            NavIcon(
+              icon: Icons.task_alt,
+              label: 'Zadania',
+              active: false,
+              onTap: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => TasksScreen()),
+                );
+                MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+                  SnackBar(
+                    content: Text('Przejście do: Zadania'),
+                    backgroundColor: Color(0xFFD4AF37),
+                    duration: Duration(seconds: 1),
+                  ),
+                );
+              },
+            ),
+            NavIcon(
+              icon: Icons.psychology,
+              label: 'Skaner',
+              active: false,
+              onTap: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => MoodScannerScreen()),
+                );
+                MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+                  SnackBar(
+                    content: Text('Przejście do: Skaner Potrzeb'),
+                    backgroundColor: Color(0xFFD4AF37),
+                    duration: Duration(seconds: 1),
+                  ),
+                );
+              },
+            ),
+            NavIcon(
+              icon: Icons.stars,
+              label: 'Astrologia',
+              active: false,
+              onTap: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => CosmogramAnalysisScreen()),
+                );
+                MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+                  SnackBar(
+                    content: Text('Przejście do: Analiza Kosmogramu'),
+                    backgroundColor: Color(0xFFD4AF37),
+                    duration: Duration(seconds: 1),
+                  ),
+                );
+              },
+            ),
+            NavIcon(
+              icon: Icons.person,
+              label: 'Profil',
+              active: false,
+              onTap: () {
+                MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+                  SnackBar(
+                    content: Text('Profil - wkrótce dostępny'),
+                    backgroundColor: Color(0xFFD4AF37),
+                    duration: Duration(seconds: 1),
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -278,11 +357,8 @@ class StatCard extends StatelessWidget {
   final String label;
   final String value;
 
-  const StatCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
+  const StatCard(
+      {required this.icon, required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -301,20 +377,45 @@ class StatCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                label,
-                style: TextStyle(color: Colors.white70, fontSize: 14),
-              ),
-              Text(
-                value,
-                style: TextStyle(
-                  color: Colors.amber,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              Text(label,
+                  style: TextStyle(color: Colors.white70, fontSize: 14)),
+              Text(value,
+                  style: TextStyle(
+                      color: Colors.amber,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold)),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class NavIcon extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool active;
+  final VoidCallback? onTap;
+
+  const NavIcon({
+    required this.icon,
+    required this.label,
+    this.active = false,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: active ? Colors.amber : Colors.white70, size: 24),
+          Text(label,
+              style: TextStyle(
+                  color: active ? Colors.amber : Colors.white70, fontSize: 12)),
         ],
       ),
     );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dashboard_screen.dart'; // Przekierowanie bezpośrednio do Dashboardu
+import '../main.dart'; // Dostęp do globalnego klucza ScaffoldMessenger
 
 class StartScreen extends StatelessWidget {
   @override
@@ -65,6 +66,15 @@ class StartScreen extends StatelessWidget {
                     context,
                     MaterialPageRoute(builder: (context) => DashboardScreen()),
                   );
+                  // Wyświetlanie SnackBar za pomocą globalnego klucza
+                  MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+                    SnackBar(
+                      content: Text(
+                          'Witaj w Soul Manager! Rozpocznij swoją podróż.'),
+                      backgroundColor: Color(0xFFD4AF37),
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
                 },
                 child: Text(
                   'Rozpocznij Podróż',
@@ -78,6 +88,13 @@ class StartScreen extends StatelessWidget {
                   Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(builder: (context) => DashboardScreen()),
+                  );
+                  MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+                    SnackBar(
+                      content: Text('Zalogowano pomyślnie!'),
+                      backgroundColor: Color(0xFFD4AF37),
+                      duration: Duration(seconds: 3),
+                    ),
                   );
                 },
                 child: Text(

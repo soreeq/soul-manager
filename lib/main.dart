@@ -10,13 +10,21 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
+  // Globalny klucz dla ScaffoldMessenger
+  static final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+      GlobalKey<ScaffoldMessengerState>();
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Soul Manager',
-      theme: ThemeData(primarySwatch: Colors.purple),
-      home: StartScreen(),
-    );
+        title: 'Soul Manager',
+        theme: ThemeData(
+          primarySwatch: Colors.purple,
+        ),
+        home: ScaffoldMessenger(
+          key: scaffoldMessengerKey,
+          child: StartScreen(),
+        ));
   }
 }
 
