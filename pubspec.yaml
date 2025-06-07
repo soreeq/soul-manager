@@ -1,0 +1,30 @@
+name: soul_manager
+description: A new Flutter project.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  flutter_native_splash: ^2.4.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
+
+flutter_native_splash:
+  color: "#1E293B" # Kolor tła zgodny z mistycznym stylem aplikacji
+  image: assets/splash.png # Ścieżka do grafiki splash screen
+  android: true
+  ios: true
+  web: false
