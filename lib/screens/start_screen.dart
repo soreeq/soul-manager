@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'dashboard_screen.dart'; // Przekierowanie do Dashboardu
-import 'profile_creation_screen.dart'; // Przekierowanie do tworzenia profilu
-import '../main.dart'; // Dostęp do globalnego klucza ScaffoldMessenger
+import 'package:soul_manager/screens/main_screen.dart' as screens;
+import 'package:soul_manager/main.dart' as app;
+import 'package:soul_manager/screens/profile_creation_screen.dart';
 
 class StartScreen extends StatelessWidget {
   @override
@@ -66,14 +66,14 @@ class StartScreen extends StatelessWidget {
                   Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(
-                        builder: (context) => DashboardScreen(
-                              nickname: '',
-                              birthDate: '',
-                              birthPlace: '',
-                            )),
+                      builder: (context) => screens.MainScreen(
+                        nickname: '',
+                        birthDate: '',
+                        birthPlace: '',
+                      ),
+                    ),
                   );
-                  // Wyświetlanie SnackBar za pomocą globalnego klucza
-                  MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+                  app.MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
                     SnackBar(
                       content: Text(
                           'Witaj w Soul Manager! Rozpocznij swoją podróż.'),
@@ -90,13 +90,12 @@ class StartScreen extends StatelessWidget {
               SizedBox(height: 16),
               TextButton(
                 onPressed: () {
-                  // Przekierowanie do ekranu tworzenia profilu
                   Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(
                         builder: (context) => ProfileCreationScreen()),
                   );
-                  MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+                  app.MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
                     SnackBar(
                       content: Text('Rozpocznij tworzenie profilu!'),
                       backgroundColor: Color(0xFFD4AF37),

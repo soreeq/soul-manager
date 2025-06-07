@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:soul_manager/screens/main_screen.dart' as screens;
+import 'package:soul_manager/main.dart' as app;
 
 class CosmogramAnalysisScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'Analiza Kosmogramu',
-          style: TextStyle(fontFamily: 'Cinzel', color: Colors.amber),
-        ),
+        title: Text('Analiza Kosmogramu',
+            style: TextStyle(fontFamily: 'Cinzel', color: Colors.amber)),
         backgroundColor: Color(0xFF1E293B),
       ),
       backgroundColor: Color(0xFF1E293B),
@@ -20,9 +20,42 @@ class CosmogramAnalysisScreen extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                FilterButton(label: 'Pełny Kosmogram', selected: true),
-                FilterButton(label: 'Tranzyty Dnia', selected: false),
-                FilterButton(label: 'Progresje', selected: false),
+                FilterButton(
+                    label: 'Pełny Kosmogram',
+                    selected: true,
+                    onPressed: () {
+                      app.MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+                        SnackBar(
+                          content: Text('Wybrano: Pełny Kosmogram'),
+                          backgroundColor: Color(0xFFD4AF37),
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
+                    }),
+                FilterButton(
+                    label: 'Tranzyty Dnia',
+                    selected: false,
+                    onPressed: () {
+                      app.MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+                        SnackBar(
+                          content: Text('Wybrano: Tranzyty Dnia'),
+                          backgroundColor: Color(0xFFD4AF37),
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
+                    }),
+                FilterButton(
+                    label: 'Progresje',
+                    selected: false,
+                    onPressed: () {
+                      app.MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+                        SnackBar(
+                          content: Text('Wybrano: Progresje'),
+                          backgroundColor: Color(0xFFD4AF37),
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
+                    }),
               ],
             ),
           ),
@@ -47,10 +80,9 @@ class CosmogramAnalysisScreen extends StatelessWidget {
                     Text(
                       'Interaktywny Wykres Kosmogramu',
                       style: TextStyle(
-                        color: Colors.amber,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                          color: Colors.amber,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold),
                     ),
                     SizedBox(height: 10),
                     Text(
@@ -102,10 +134,9 @@ class CosmogramAnalysisScreen extends StatelessWidget {
                     Text(
                       'Szczegółowa Interpretacja:',
                       style: TextStyle(
-                        color: Colors.amber,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                          color: Colors.amber,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold),
                     ),
                     SizedBox(height: 8),
                     Text(
@@ -128,8 +159,10 @@ class CosmogramAnalysisScreen extends StatelessWidget {
 class FilterButton extends StatelessWidget {
   final String label;
   final bool selected;
+  final VoidCallback? onPressed;
 
-  const FilterButton({required this.label, this.selected = false});
+  const FilterButton(
+      {required this.label, this.selected = false, this.onPressed});
 
   @override
   Widget build(BuildContext context) {
@@ -139,15 +172,11 @@ class FilterButton extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       ),
-      onPressed: () {
-        // Tutaj można dodać logikę przełączania widoków
-      },
+      onPressed: onPressed,
       child: Text(
         label,
         style: TextStyle(
-          color: selected ? Colors.black : Colors.white,
-          fontSize: 14,
-        ),
+            color: selected ? Colors.black : Colors.white, fontSize: 14),
       ),
     );
   }
@@ -158,28 +187,18 @@ class AspectTile extends StatelessWidget {
   final String title;
   final String description;
 
-  const AspectTile({
-    required this.icon,
-    required this.title,
-    required this.description,
-  });
+  const AspectTile(
+      {required this.icon, required this.title, required this.description});
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
       leading: Icon(icon, color: Colors.amber, size: 20),
-      title: Text(
-        title,
-        style: TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-          fontSize: 16,
-        ),
-      ),
-      subtitle: Text(
-        description,
-        style: TextStyle(color: Colors.white70, fontSize: 14),
-      ),
+      title: Text(title,
+          style: TextStyle(
+              color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+      subtitle: Text(description,
+          style: TextStyle(color: Colors.white70, fontSize: 14)),
       contentPadding: EdgeInsets.symmetric(vertical: 0, horizontal: 8),
     );
   }

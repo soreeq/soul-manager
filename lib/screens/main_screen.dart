@@ -1,46 +1,50 @@
 import 'package:flutter/material.dart';
-import 'package:soul_manager/screens/start_screen.dart';
-import 'screens/dashboard_screen.dart';
-import 'screens/tasks_screen.dart';
-import 'screens/mood_scanner_screen.dart';
-import 'screens/cosmogram_analysis_screen.dart';
-
-void main() {
-  runApp(MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  // Globalny klucz dla ScaffoldMessenger
-  static final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
-      GlobalKey<ScaffoldMessengerState>();
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Soul Manager',
-      theme: ThemeData(
-        primarySwatch: Colors.purple,
-      ),
-      scaffoldMessengerKey:
-          scaffoldMessengerKey, // Globalny klucz dla SnackBarów
-      home: StartScreen(),
-    );
-  }
-}
+import 'dashboard_screen.dart';
+import 'tasks_screen.dart';
+import 'mood_scanner_screen.dart';
+import 'cosmogram_analysis_screen.dart';
+import 'profile_screen.dart';
+import '../main.dart'; // Dostęp do globalnego klucza ScaffoldMessenger
 
 class MainScreen extends StatefulWidget {
+  final String nickname;
+  final String birthDate;
+  final String birthPlace;
+
+  MainScreen({
+    this.nickname = '',
+    this.birthDate = '',
+    this.birthPlace = '',
+  });
+
   @override
   _MainScreenState createState() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
-  final List<Widget> _screens = [
-    DashboardScreen(),
-    TasksScreen(),
-    MoodScannerScreen(),
-    CosmogramAnalysisScreen(),
-  ];
+
+  late List<Widget> _screens;
+
+  @override
+  void initState() {
+    super.initState();
+    _screens = [
+      DashboardScreen(
+        nickname: widget.nickname,
+        birthDate: widget.birthDate,
+        birthPlace: widget.birthPlace,
+      ),
+      TasksScreen(),
+      MoodScannerScreen(),
+      CosmogramAnalysisScreen(),
+      ProfileScreen(
+        nickname: widget.nickname,
+        birthDate: widget.birthDate,
+        birthPlace: widget.birthPlace,
+      ),
+    ];
+  }
 
   void _onTabTapped(int index) {
     setState(() {
@@ -60,10 +64,13 @@ class _MainScreenState extends State<MainScreen> {
       case 3:
         screenName = 'Analiza Kosmogramu';
         break;
+      case 4:
+        screenName = 'Profil';
+        break;
       default:
         screenName = 'Nieznany ekran';
     }
-    ScaffoldMessenger.of(context).showSnackBar(
+    MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(
         content: Text('Przejście do: $screenName'),
         backgroundColor: Color(0xFFD4AF37),
@@ -109,16 +116,8 @@ class _MainScreenState extends State<MainScreen> {
             NavIcon(
               icon: Icons.person,
               label: 'Profil',
-              active: false,
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Profil - wkrótce dostępny'),
-                    backgroundColor: Color(0xFFD4AF37),
-                    duration: Duration(seconds: 1),
-                  ),
-                );
-              },
+              active: _currentIndex == 4,
+              onTap: () => _onTabTapped(4),
             ),
           ],
         ),
@@ -148,13 +147,9 @@ class NavIcon extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, color: active ? Colors.amber : Colors.white70, size: 24),
-          Text(
-            label,
-            style: TextStyle(
-              color: active ? Colors.amber : Colors.white70,
-              fontSize: 12,
-            ),
-          ),
+          Text(label,
+              style: TextStyle(
+                  color: active ? Colors.amber : Colors.white70, fontSize: 12)),
         ],
       ),
     );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'tasks_screen.dart'; // Import, aby móc przejść do ekranu zadań z propozycjami
+import 'package:soul_manager/screens/main_screen.dart' as screens;
+import 'package:soul_manager/main.dart' as app;
 
 class MoodScannerScreen extends StatefulWidget {
   @override
@@ -20,7 +21,7 @@ class _MoodScannerScreenState extends State<MoodScannerScreen> {
     'Zainspirowany',
     'Rozproszony',
     'Smutny',
-    'Energiczny',
+    'Energiczny'
   ];
   // Lista potrzeb do wyboru
   final List<String> needs = [
@@ -29,7 +30,7 @@ class _MoodScannerScreenState extends State<MoodScannerScreen> {
     'Spokoju',
     'Jasności',
     'Wsparcia',
-    'Równowagi',
+    'Równowagi'
   ];
 
   // Funkcja rekomendująca zadania na podstawie nastroju i potrzeb
@@ -40,73 +41,73 @@ class _MoodScannerScreenState extends State<MoodScannerScreen> {
         tasks.add({
           'title': 'Medytacja przy Wodzie',
           'description': 'Medytuj przez 10 minut przy wodzie.',
-          'reward': '+20 Spokoju, +5 XP',
+          'reward': '+20 Spokoju, +5 XP'
         });
         tasks.add({
           'title': 'Kąpiel Oczyszczająca',
           'description': 'Weź kąpiel z solą, wizualizując oczyszczenie.',
-          'reward': '+15 Odnowy, +3 XP',
+          'reward': '+15 Odnowy, +3 XP'
         });
       }
       if (_selectedMood == 'Zainspirowany' || _selectedNeed == 'Inspiracji') {
         tasks.add({
           'title': 'Dziennik Kreatywny',
           'description': 'Zapisz 3 pomysły lub myśli bez oceniania.',
-          'reward': '+15 Energii Ognia, +5 XP',
+          'reward': '+15 Energii Ognia, +5 XP'
         });
         tasks.add({
           'title': 'Rysunek Intuicyjny',
           'description': 'Narysuj coś odzwierciedlającego Twój nastrój.',
-          'reward': '+10 Inspiracji, +3 XP',
+          'reward': '+10 Inspiracji, +3 XP'
         });
       }
       if (_selectedMood == 'Rozproszony' || _selectedNeed == 'Jasności') {
         tasks.add({
           'title': 'Ćwiczenie Oddechowe',
           'description': 'Wykonaj 5-minutowe głębokie oddychanie.',
-          'reward': '+15 Jasności Umysłu, +4 XP',
+          'reward': '+15 Jasności Umysłu, +4 XP'
         });
         tasks.add({
           'title': 'Słuchanie Ciszy',
           'description': 'Spędź 5 minut w całkowitej ciszy.',
-          'reward': '+12 Wglądu, +3 XP',
+          'reward': '+12 Wglądu, +3 XP'
         });
       }
       if (_selectedMood == 'Smutny' || _selectedNeed == 'Wsparcia') {
         tasks.add({
           'title': 'Życzliwość dla Innych',
           'description': 'Wykonaj mały gest dobroci.',
-          'reward': '+15 Energii Serca, +3 XP',
+          'reward': '+15 Energii Serca, +3 XP'
         });
         tasks.add({
           'title': 'Wdzięczność za Emocje',
           'description':
               'Zapisz 3 rzeczy związane z emocjami, za które jesteś wdzięczny.',
-          'reward': '+10 Równowagi, +2 XP',
+          'reward': '+10 Równowagi, +2 XP'
         });
       }
       if (_selectedNeed == 'Uziemienia') {
         tasks.add({
           'title': 'Spacer w Naturze',
           'description': 'Idź na 15-minutowy spacer do parku lub lasu.',
-          'reward': '+20 Energii Ziemi, +5 XP',
+          'reward': '+20 Energii Ziemi, +5 XP'
         });
         tasks.add({
           'title': 'Ćwiczenie Boso',
           'description': 'Stań boso na trawie przez 5 minut.',
-          'reward': '+15 Stabilności, +3 XP',
+          'reward': '+15 Stabilności, +3 XP'
         });
       }
       if (_selectedMood == 'Energiczny' || _selectedNeed == 'Równowagi') {
         tasks.add({
           'title': 'Taniec Wyrażenia',
           'description': 'Tańcz przez 5 minut, wyrażając emocje.',
-          'reward': '+12 Pasji, +4 XP',
+          'reward': '+12 Pasji, +4 XP'
         });
         tasks.add({
           'title': 'Wieczorna Refleksja',
           'description': 'Podsumuj dzień, zapisując 3 sukcesy.',
-          'reward': '+20 Rozwoju Ducha, +5 XP',
+          'reward': '+20 Rozwoju Ducha, +5 XP'
         });
       }
     }
@@ -123,10 +124,7 @@ class _MoodScannerScreenState extends State<MoodScannerScreen> {
         title: Text(
           'Skaner Potrzeb',
           style: TextStyle(
-            fontFamily: 'Cinzel',
-            color: Colors.amber,
-            fontSize: 22,
-          ),
+              fontFamily: 'Cinzel', color: Colors.amber, fontSize: 22),
         ),
         backgroundColor: Color(0xFF1E293B),
         elevation: 0,
@@ -151,18 +149,15 @@ class _MoodScannerScreenState extends State<MoodScannerScreen> {
                         ? 'Jak się dziś czujesz?'
                         : 'Czego dziś potrzebujesz?',
                     style: TextStyle(
-                      color: Colors.amber,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
+                        color: Colors.amber,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold),
                   ),
                 ),
                 ...(_currentStep == 0 ? moods : needs).map((item) {
                   return Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0,
-                      vertical: 8.0,
-                    ),
+                        horizontal: 16.0, vertical: 8.0),
                     child: Card(
                       color:
                           (_currentStep == 0 ? _selectedMood : _selectedNeed) ==
@@ -170,8 +165,7 @@ class _MoodScannerScreenState extends State<MoodScannerScreen> {
                               ? Color(0xFFD4AF37).withOpacity(0.3)
                               : Color(0xFF2C3E50),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                          borderRadius: BorderRadius.circular(12)),
                       child: ListTile(
                         title: Text(
                           item,
@@ -204,8 +198,7 @@ class _MoodScannerScreenState extends State<MoodScannerScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.grey.shade700,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                        borderRadius: BorderRadius.circular(8)),
                   ),
                   onPressed: () {
                     setState(() {
@@ -218,8 +211,7 @@ class _MoodScannerScreenState extends State<MoodScannerScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Color(0xFFD4AF37),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                      borderRadius: BorderRadius.circular(8)),
                 ),
                 onPressed: () {
                   if (_currentStep == 0 && _selectedMood.isNotEmpty) {
@@ -230,10 +222,8 @@ class _MoodScannerScreenState extends State<MoodScannerScreen> {
                     _recommendTasks();
                   }
                 },
-                child: Text(
-                  _currentStep == 0 ? 'Dalej' : 'Zakończ',
-                  style: TextStyle(color: Colors.black),
-                ),
+                child: Text(_currentStep == 0 ? 'Dalej' : 'Zakończ',
+                    style: TextStyle(color: Colors.black)),
               ),
             ],
           ),
@@ -251,10 +241,7 @@ class _MoodScannerScreenState extends State<MoodScannerScreen> {
           child: Text(
             'Twoje Wyniki',
             style: TextStyle(
-              color: Colors.amber,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+                color: Colors.amber, fontSize: 20, fontWeight: FontWeight.bold),
           ),
         ),
         Padding(
@@ -269,10 +256,7 @@ class _MoodScannerScreenState extends State<MoodScannerScreen> {
           child: Text(
             'Rekomendowane Zadania',
             style: TextStyle(
-              color: Colors.amber,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+                color: Colors.amber, fontSize: 18, fontWeight: FontWeight.bold),
           ),
         ),
         Expanded(
@@ -281,23 +265,19 @@ class _MoodScannerScreenState extends State<MoodScannerScreen> {
             itemBuilder: (context, index) {
               var task = _recommendedTasks[index];
               return Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0,
-                  vertical: 8.0,
-                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                 child: Card(
                   color: Color(0xFF2C3E50),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                      borderRadius: BorderRadius.circular(12)),
                   child: ListTile(
                     title: Text(
                       task['title'],
                       style: TextStyle(
-                        color: Colors.amber,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                          color: Colors.amber,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold),
                     ),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -310,9 +290,7 @@ class _MoodScannerScreenState extends State<MoodScannerScreen> {
                         Text(
                           'Nagroda: ${task['reward']}',
                           style: TextStyle(
-                            color: Colors.greenAccent,
-                            fontSize: 12,
-                          ),
+                              color: Colors.greenAccent, fontSize: 12),
                         ),
                       ],
                     ),
@@ -320,12 +298,11 @@ class _MoodScannerScreenState extends State<MoodScannerScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Color(0xFFD4AF37),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                            borderRadius: BorderRadius.circular(8)),
                       ),
                       onPressed: () {
-                        // Można dodać logikę rozpoczęcia zadania
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        app.MyApp.scaffoldMessengerKey.currentState
+                            ?.showSnackBar(
                           SnackBar(
                             content: Text('Rozpoczęto: ${task['title']}'),
                             backgroundColor: Color(0xFFD4AF37),
@@ -333,10 +310,8 @@ class _MoodScannerScreenState extends State<MoodScannerScreen> {
                           ),
                         );
                       },
-                      child: Text(
-                        'Zacznij',
-                        style: TextStyle(color: Colors.black),
-                      ),
+                      child: Text('Zacznij',
+                          style: TextStyle(color: Colors.black)),
                     ),
                   ),
                 ),
@@ -350,8 +325,7 @@ class _MoodScannerScreenState extends State<MoodScannerScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.grey.shade700,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+                  borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () {
               setState(() {

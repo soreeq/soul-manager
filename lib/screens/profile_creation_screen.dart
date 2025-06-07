@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'dashboard_screen.dart';
-import '../main.dart'; // Dostęp do globalnego klucza ScaffoldMessenger
+import 'package:soul_manager/screens/main_screen.dart' as screens;
+import 'package:soul_manager/main.dart' as app;
 
 class ProfileCreationScreen extends StatefulWidget {
   @override
@@ -28,18 +28,18 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
       String birthDate = _birthDateController.text;
       String birthPlace = _birthPlaceController.text;
 
-      // Przekieruj do Dashboardu z danymi
+      // Przekieruj do MainScreen z danymi
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => DashboardScreen(
+          builder: (context) => screens.MainScreen(
             nickname: nickname,
             birthDate: birthDate,
             birthPlace: birthPlace,
           ),
         ),
       );
-      MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+      app.MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(
           content: Text('Profil utworzony! Witaj, $nickname!'),
           backgroundColor: Color(0xFFD4AF37),
