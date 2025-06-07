@@ -2,9 +2,20 @@ import 'package:flutter/material.dart';
 import 'tasks_screen.dart';
 import 'mood_scanner_screen.dart';
 import 'cosmogram_analysis_screen.dart';
+import 'profile_screen.dart';
 import '../main.dart'; // Dostęp do globalnego klucza ScaffoldMessenger
 
 class DashboardScreen extends StatelessWidget {
+  final String nickname;
+  final String birthDate;
+  final String birthPlace;
+
+  DashboardScreen({
+    this.nickname = '',
+    this.birthDate = '',
+    this.birthPlace = '',
+  });
+
   // Przykładowa funkcja generująca sentencję na dzień na podstawie ułożenia planet
   String getDailyReflection() {
     // Na razie statyczne dane, można później połączyć z API lub lokalną bazą danych astrologicznych
@@ -75,7 +86,7 @@ class DashboardScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Mag Nowicjusz',
+                        nickname.isNotEmpty ? nickname : 'Mag Nowicjusz',
                         style: TextStyle(
                           color: Colors.amber,
                           fontSize: 20,
@@ -336,9 +347,19 @@ class DashboardScreen extends StatelessWidget {
               label: 'Profil',
               active: false,
               onTap: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ProfileScreen(
+                      nickname: nickname,
+                      birthDate: birthDate,
+                      birthPlace: birthPlace,
+                    ),
+                  ),
+                );
                 MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
                   SnackBar(
-                    content: Text('Profil - wkrótce dostępny'),
+                    content: Text('Przejście do: Profil'),
                     backgroundColor: Color(0xFFD4AF37),
                     duration: Duration(seconds: 1),
                   ),

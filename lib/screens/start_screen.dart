@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'dashboard_screen.dart'; // Przekierowanie bezpośrednio do Dashboardu
+import 'dashboard_screen.dart'; // Przekierowanie do Dashboardu
+import 'profile_creation_screen.dart'; // Przekierowanie do tworzenia profilu
 import '../main.dart'; // Dostęp do globalnego klucza ScaffoldMessenger
 
 class StartScreen extends StatelessWidget {
@@ -64,7 +65,12 @@ class StartScreen extends StatelessWidget {
                 onPressed: () {
                   Navigator.pushReplacement(
                     context,
-                    MaterialPageRoute(builder: (context) => DashboardScreen()),
+                    MaterialPageRoute(
+                        builder: (context) => DashboardScreen(
+                              nickname: '',
+                              birthDate: '',
+                              birthPlace: '',
+                            )),
                   );
                   // Wyświetlanie SnackBar za pomocą globalnego klucza
                   MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
@@ -84,14 +90,15 @@ class StartScreen extends StatelessWidget {
               SizedBox(height: 16),
               TextButton(
                 onPressed: () {
-                  // Logika logowania - na razie przejście do DashboardScreen
+                  // Przekierowanie do ekranu tworzenia profilu
                   Navigator.pushReplacement(
                     context,
-                    MaterialPageRoute(builder: (context) => DashboardScreen()),
+                    MaterialPageRoute(
+                        builder: (context) => ProfileCreationScreen()),
                   );
                   MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
                     SnackBar(
-                      content: Text('Zalogowano pomyślnie!'),
+                      content: Text('Rozpocznij tworzenie profilu!'),
                       backgroundColor: Color(0xFFD4AF37),
                       duration: Duration(seconds: 3),
                     ),
