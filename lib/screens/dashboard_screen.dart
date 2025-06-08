@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:math';
 import '../main.dart'; // Dostęp do globalnego klucza ScaffoldMessenger
 import '../user_state.dart'; // Dostęp do stanu użytkownika
+import 'cosmogram_analysis_screen.dart'; // Import dla nawigacji do astrologii
 
 class ReflectionEntry {
   final String text;
@@ -22,6 +23,47 @@ class ReflectionJournal {
 
   static void addEntry(String text, String type) {
     _entries.insert(0, ReflectionEntry(text, type, DateTime.now()));
+  }
+}
+
+class CompletedTask {
+  final String title;
+  final String element;
+  final int xpReward;
+  final double elementalEnergy;
+  final DateTime completedAt;
+
+  CompletedTask({
+    required this.title,
+    required this.element,
+    required this.xpReward,
+    required this.elementalEnergy,
+    required this.completedAt,
+  });
+}
+
+class CompletedTasksManager {
+  static final List<CompletedTask> _completedTasks = [];
+
+  static List<CompletedTask> get completedTasks => _completedTasks;
+
+  static void addCompletedTask(SpiritualTask task) {
+    _completedTasks.add(CompletedTask(
+      title: task.title,
+      element: task.element,
+      xpReward: task.xpReward,
+      elementalEnergy: task.elementalEnergy,
+      completedAt: DateTime.now(),
+    ));
+  }
+
+  static int getTodayCompletedCount() {
+    final today = DateTime.now();
+    return _completedTasks.where((task) {
+      return task.completedAt.year == today.year &&
+          task.completedAt.month == today.month &&
+          task.completedAt.day == today.day;
+    }).length;
   }
 }
 
@@ -45,13 +87,13 @@ class ElementalEnergy {
   static Color getElementColor(String element) {
     switch (element) {
       case 'Ziemia':
-        return Colors.green; // Zielona ziemia
+        return Colors.green;
       case 'Ogień':
-        return Colors.red; // Czerwony ogień
+        return Colors.red;
       case 'Woda':
-        return Colors.blue; // Niebieski woda
+        return Colors.blue;
       case 'Powietrze':
-        return Colors.white; // Białe powietrze
+        return Colors.white;
       default:
         return Colors.grey;
     }
@@ -242,6 +284,10 @@ class AuraManager {
     return Duration(
       hours: hours.floor(),
       minutes: ((hours - hours.floor()) * 60).round(),
+      seconds: (((hours - hours.floor()) * 60 -
+                  ((hours - hours.floor()) * 60).round()) *
+              60)
+          .round(),
     );
   }
 
@@ -269,8 +315,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     with TickerProviderStateMixin {
   UserState userState = UserState();
   bool _taskCompleted = false;
-  SpiritualTask _currentTask = TaskManager.getRandomTask();
-  int _completedTasksToday = 0; // Licznik wykonanych zadań
+  int _currentTaskIndex = 0;
 
   // Kontrolery animacji
   late AnimationController _animationController;
@@ -279,6 +324,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   late Animation<double> _xpBarAnimation;
   late AnimationController _auraBarController;
   late Animation<double> _auraBarAnimation;
+  late AnimationController _cardAnimationController;
+  late Animation<Offset> _cardSlideAnimation;
 
   // Kontrolery animacji dla pasków żywiołów
   late Map<String, AnimationController> _elementalBarControllers;
@@ -293,7 +340,6 @@ class _DashboardScreenState extends State<DashboardScreen>
   final TextEditingController _gratitudeController = TextEditingController();
 
   Timer? _auraUpdateTimer;
-  PageController _taskPageController = PageController();
 
   @override
   void initState() {
@@ -317,12 +363,26 @@ class _DashboardScreenState extends State<DashboardScreen>
       curve: Curves.easeInOut,
     );
 
+    // Animacja dla karty zadania
+    _cardAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
+    _cardSlideAnimation = Tween<Offset>(
+      begin: Offset.zero,
+      end: Offset(1.5, 0),
+    ).animate(CurvedAnimation(
+      parent: _cardAnimationController,
+      curve: Curves.easeInOut,
+    ));
+
     // Animacja dla paska XP
     _xpBarController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
-    _xpBarAnimation = Tween<double>(begin: 0.0, end: 0.0).animate(
+    _xpBarAnimation =
+        Tween<double>(begin: userState.expBar, end: userState.expBar).animate(
       CurvedAnimation(parent: _xpBarController, curve: Curves.easeOut),
     );
 
@@ -345,12 +405,49 @@ class _DashboardScreenState extends State<DashboardScreen>
         duration: const Duration(milliseconds: 1500),
         vsync: this,
       );
-      _elementalBarAnimations[element] =
-          Tween<double>(begin: 0.0, end: 0.0).animate(
+      _elementalBarAnimations[element] = Tween<double>(
+        begin: ElementalEnergy.energies[element]! /
+            ElementalEnergy.maxEnergyPerDay,
+        end: ElementalEnergy.energies[element]! /
+            ElementalEnergy.maxEnergyPerDay,
+      ).animate(
         CurvedAnimation(
             parent: _elementalBarControllers[element]!, curve: Curves.easeOut),
       );
       _previousElementalValues[element] = ElementalEnergy.energies[element]!;
+    }
+
+    // Uruchom animacje początkowe
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshProgressBars();
+    });
+  }
+
+  void _refreshProgressBars() {
+    // Odśwież pasek XP
+    _xpBarAnimation = Tween<double>(
+      begin: 0.0,
+      end: userState.expBar,
+    ).animate(CurvedAnimation(parent: _xpBarController, curve: Curves.easeOut));
+    _xpBarController.forward(from: 0.0);
+
+    // Odśwież pasek Aury
+    _auraBarAnimation = Tween<double>(
+      begin: 0.0,
+      end: AuraManager.aura / 100.0,
+    ).animate(
+        CurvedAnimation(parent: _auraBarController, curve: Curves.easeOut));
+    _auraBarController.forward(from: 0.0);
+
+    // Odśwież paski żywiołów
+    for (String element in ElementalEnergy.energies.keys) {
+      _elementalBarAnimations[element] = Tween<double>(
+        begin: 0.0,
+        end: ElementalEnergy.energies[element]! /
+            ElementalEnergy.maxEnergyPerDay,
+      ).animate(CurvedAnimation(
+          parent: _elementalBarControllers[element]!, curve: Curves.easeOut));
+      _elementalBarControllers[element]!.forward(from: 0.0);
     }
   }
 
@@ -359,10 +456,10 @@ class _DashboardScreenState extends State<DashboardScreen>
     _animationController.dispose();
     _xpBarController.dispose();
     _auraBarController.dispose();
+    _cardAnimationController.dispose();
     _reflectionController.dispose();
     _gratitudeController.dispose();
     _auraUpdateTimer?.cancel();
-    _taskPageController.dispose();
 
     for (var controller in _elementalBarControllers.values) {
       controller.dispose();
@@ -371,6 +468,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     AuraManager.dispose();
     super.dispose();
   }
+
+  SpiritualTask get _currentTask => TaskManager.allTasks[_currentTaskIndex];
 
   String getDailyReflection() {
     DateTime today = DateTime.now();
@@ -509,13 +608,61 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  void _rejectTask() {
+  void _navigateToAstrology() {
+    // Bezpieczna nawigacja do ekranu astrologii
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CosmogramAnalysisScreen(),
+      ),
+    );
+  }
+
+  void _navigateToCompletedTasks() {
+    // Nawigacja do listy wykonanych zadań
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CompletedTasksScreen(),
+      ),
+    );
+  }
+
+  void _nextTask() {
     setState(() {
-      _currentTask = TaskManager.getRandomTask();
+      _currentTaskIndex = (_currentTaskIndex + 1) % TaskManager.allTasks.length;
     });
+  }
+
+  void _previousTask() {
+    setState(() {
+      _currentTaskIndex =
+          (_currentTaskIndex - 1 + TaskManager.allTasks.length) %
+              TaskManager.allTasks.length;
+    });
+  }
+
+  void _rejectTask() {
+    // Animacja karty w lewo (odrzucenie)
+    _cardSlideAnimation = Tween<Offset>(
+      begin: Offset.zero,
+      end: Offset(-1.5, 0),
+    ).animate(CurvedAnimation(
+      parent: _cardAnimationController,
+      curve: Curves.easeInOut,
+    ));
+
+    _cardAnimationController.forward().then((_) {
+      setState(() {
+        _currentTaskIndex =
+            (_currentTaskIndex + 1) % TaskManager.allTasks.length;
+      });
+      _cardAnimationController.reverse();
+    });
+
     MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(
-        content: Text('Nowe zadanie zostało załadowane!'),
+        content: Text('Zadanie odrzucone! Nowe zadanie załadowane.'),
         backgroundColor: Colors.orange,
         duration: Duration(seconds: 2),
       ),
@@ -537,77 +684,94 @@ class _DashboardScreenState extends State<DashboardScreen>
       return;
     }
 
-    setState(() {
-      _taskCompleted = true;
-      _completedTasksToday++; // Aktualizuj licznik zadań
-      _previousAuraValue = AuraManager.aura / 100.0;
-      _previousXpBarValue = userState.expBar;
+    // Animacja karty w prawo (wykonanie)
+    _cardSlideAnimation = Tween<Offset>(
+      begin: Offset.zero,
+      end: Offset(1.5, 0),
+    ).animate(CurvedAnimation(
+      parent: _cardAnimationController,
+      curve: Curves.easeInOut,
+    ));
 
-      // Zapisz poprzednie wartości energii żywiołów
-      for (String element in ElementalEnergy.energies.keys) {
-        _previousElementalValues[element] = ElementalEnergy.energies[element]!;
-      }
+    _cardAnimationController.forward().then((_) {
+      setState(() {
+        _taskCompleted = true;
+        _previousAuraValue = AuraManager.aura / 100.0;
+        _previousXpBarValue = userState.expBar;
 
-      // Zużyj aurę
-      AuraManager.consumeAura();
-
-      // Dodaj energię żywiołu z aktualnego zadania
-      ElementalEnergy.addEnergy(
-          _currentTask.element, _currentTask.elementalEnergy);
-
-      bool levelUp = userState.completeTask(_currentTask.xpReward, 0);
-
-      // Animacja paska Aury
-      _auraBarAnimation = Tween<double>(
-        begin: _previousAuraValue,
-        end: AuraManager.aura / 100.0,
-      ).animate(
-        CurvedAnimation(parent: _auraBarController, curve: Curves.easeOut),
-      );
-      _auraBarController.forward(from: 0.0);
-
-      // Animacja paska XP
-      _xpBarAnimation = Tween<double>(
-        begin: _previousXpBarValue,
-        end: userState.expBar,
-      ).animate(
-        CurvedAnimation(parent: _xpBarController, curve: Curves.easeOut),
-      );
-      _xpBarController.forward(from: 0.0);
-
-      // Animacja paska żywiołu
-      String element = _currentTask.element;
-      _elementalBarAnimations[element] = Tween<double>(
-        begin: _previousElementalValues[element]! /
-            ElementalEnergy.maxEnergyPerDay,
-        end: ElementalEnergy.energies[element]! /
-            ElementalEnergy.maxEnergyPerDay,
-      ).animate(
-        CurvedAnimation(
-            parent: _elementalBarControllers[element]!, curve: Curves.easeOut),
-      );
-      _elementalBarControllers[element]!.forward(from: 0.0);
-
-      if (levelUp) {
-        _showLevelUpEffect(userState.title);
-      }
-
-      // Po kilku sekundach pokazanie nowego zadania
-      Future.delayed(Duration(seconds: 3), () {
-        if (mounted) {
-          setState(() {
-            _taskCompleted = false;
-            _currentTask = TaskManager.getRandomTask();
-          });
-          MyApp.scaffoldMessengerKey.currentState?.removeCurrentSnackBar();
-          MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
-            SnackBar(
-              content: Text('Nowe zadanie dnia dostępne!'),
-              backgroundColor: Color(0xFFD4AF37),
-              duration: Duration(seconds: 2),
-            ),
-          );
+        // Zapisz poprzednie wartości energii żywiołów
+        for (String element in ElementalEnergy.energies.keys) {
+          _previousElementalValues[element] =
+              ElementalEnergy.energies[element]!;
         }
+
+        // Dodaj zadanie do listy wykonanych
+        CompletedTasksManager.addCompletedTask(_currentTask);
+
+        // Zużyj aurę
+        AuraManager.consumeAura();
+
+        // Dodaj energię żywiołu z aktualnego zadania
+        ElementalEnergy.addEnergy(
+            _currentTask.element, _currentTask.elementalEnergy);
+
+        bool levelUp = userState.completeTask(_currentTask.xpReward, 0);
+
+        // Animacja paska Aury
+        _auraBarAnimation = Tween<double>(
+          begin: _previousAuraValue,
+          end: AuraManager.aura / 100.0,
+        ).animate(
+          CurvedAnimation(parent: _auraBarController, curve: Curves.easeOut),
+        );
+        _auraBarController.forward(from: 0.0);
+
+        // Animacja paska XP
+        _xpBarAnimation = Tween<double>(
+          begin: _previousXpBarValue,
+          end: userState.expBar,
+        ).animate(
+          CurvedAnimation(parent: _xpBarController, curve: Curves.easeOut),
+        );
+        _xpBarController.forward(from: 0.0);
+
+        // Animacja paska żywiołu
+        String element = _currentTask.element;
+        _elementalBarAnimations[element] = Tween<double>(
+          begin: _previousElementalValues[element]! /
+              ElementalEnergy.maxEnergyPerDay,
+          end: ElementalEnergy.energies[element]! /
+              ElementalEnergy.maxEnergyPerDay,
+        ).animate(
+          CurvedAnimation(
+              parent: _elementalBarControllers[element]!,
+              curve: Curves.easeOut),
+        );
+        _elementalBarControllers[element]!.forward(from: 0.0);
+
+        if (levelUp) {
+          _showLevelUpEffect(userState.title);
+        }
+
+        // Po kilku sekundach pokazanie nowego zadania
+        Future.delayed(Duration(seconds: 3), () {
+          if (mounted) {
+            setState(() {
+              _taskCompleted = false;
+              _currentTaskIndex =
+                  (_currentTaskIndex + 1) % TaskManager.allTasks.length;
+            });
+            _cardAnimationController.reverse();
+            MyApp.scaffoldMessengerKey.currentState?.removeCurrentSnackBar();
+            MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+              SnackBar(
+                content: Text('Nowe zadanie dnia dostępne!'),
+                backgroundColor: Color(0xFFD4AF37),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        });
       });
     });
 
@@ -662,7 +826,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         Icon(
           ElementalEnergy.getElementIcon(element),
           color: ElementalEnergy.getElementColor(element),
-          size: 24, // Większe symbole żywiołów
+          size: 24,
         ),
         SizedBox(height: 6),
         Container(
@@ -711,31 +875,24 @@ class _DashboardScreenState extends State<DashboardScreen>
     // Aktualizuj aurę przed renderowaniem
     AuraManager.updateAura();
     final timeToFull = AuraManager.timeToFull();
+    final todayCompletedTasks = CompletedTasksManager.getTodayCompletedCount();
 
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
           image: DecorationImage(
-            image: AssetImage('assets/splash.png'), // Tło splash.png
+            image: AssetImage('assets/splash.png'),
             fit: BoxFit.cover,
             colorFilter: ColorFilter.mode(
-              Colors.black
-                  .withOpacity(0.3), // Przyciemnij tło dla lepszej czytelności
+              Colors.black.withOpacity(0.3),
               BlendMode.darken,
             ),
           ),
         ),
         child: Column(
           children: [
-            AppBar(
-              title: Text(
-                'Dashboard ${userState.title}',
-                style: TextStyle(
-                    fontFamily: 'Cinzel', color: Colors.amber, fontSize: 22),
-              ),
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-            ),
+            // Usunięto AppBar z napisem "Dashboard adept początkujący"
+            SizedBox(height: 50), // Przestrzeń na status bar
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
@@ -744,8 +901,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     // Sekcja Awatara i Poziomu z paskiem XP
                     Container(
                       margin: EdgeInsets.all(16),
-                      padding:
-                          EdgeInsets.all(20), // Większy padding od krawędzi
+                      padding: EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [Color(0xFF6B46C1), Color(0xFF34495E)],
@@ -769,7 +925,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                               ),
                             ),
                           ),
-                          SizedBox(width: 20), // Większy odstęp
+                          SizedBox(width: 20),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -791,8 +947,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                     Text(
                                       'Poziom ${userState.level}',
                                       style: TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 18), // Większa czcionka
+                                          color: Colors.white70, fontSize: 18),
                                     ),
                                     SizedBox(width: 12),
                                     Expanded(
@@ -805,12 +960,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                                             builder: (context, child) {
                                               return Container(
                                                 margin: EdgeInsets.symmetric(
-                                                    horizontal:
-                                                        8), // Oddzielenie od krawędzi
+                                                    horizontal: 8),
                                                 child: LinearProgressIndicator(
                                                   value: _xpBarAnimation.value,
-                                                  minHeight:
-                                                      6, // Mniejszy pasek
+                                                  minHeight: 6,
                                                   backgroundColor:
                                                       Colors.grey.shade700,
                                                   valueColor:
@@ -831,8 +984,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                               'XP: ${userState.xp}/${userState.level == 10 ? "MAX" : UserState.levelThresholds[userState.level]}',
                                               style: TextStyle(
                                                   color: Colors.white70,
-                                                  fontSize:
-                                                      14), // Większa czcionka
+                                                  fontSize: 14),
                                             ),
                                           ),
                                         ],
@@ -847,9 +999,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                       ),
                     ),
 
-                    // Pasek Aury z regeneracją
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
+                    // Pasek Aury z regeneracją i tłem
+                    Container(
+                      margin: EdgeInsets.symmetric(horizontal: 16),
+                      padding: EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Color(0xFF2C3E50).withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                            color: Colors.amber.withOpacity(0.3), width: 1),
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -882,17 +1041,28 @@ class _DashboardScreenState extends State<DashboardScreen>
                           ),
                           if (AuraManager.aura < AuraManager.maxAura)
                             Text(
-                              'Do pełnej regeneracji: ${timeToFull.inHours}h ${timeToFull.inMinutes % 60}min',
-                              style:
-                                  TextStyle(color: Colors.orange, fontSize: 12),
+                              'Do pełnej regeneracji: ${timeToFull.inHours}h ${timeToFull.inMinutes % 60}min ${timeToFull.inSeconds % 60}s',
+                              style: TextStyle(
+                                  color: Colors.orange,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold),
                             ),
                         ],
                       ),
                     ),
 
-                    // Paski Energii Żywiołów
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
+                    SizedBox(height: 16),
+
+                    // Paski Energii Żywiołów z przezroczystym tłem
+                    Container(
+                      margin: EdgeInsets.symmetric(horizontal: 16),
+                      padding: EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Color(0xFF2C3E50).withOpacity(0.7),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                            color: Colors.amber.withOpacity(0.3), width: 1),
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -915,189 +1085,202 @@ class _DashboardScreenState extends State<DashboardScreen>
                       ),
                     ),
 
-                    // Zadanie Dnia z możliwością przesuwania i odrzucania
+                    SizedBox(height: 16),
+
+                    // Zadanie Dnia - wyśrodkowany tytuł, strzałki przy liczniku
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Zadanie Dnia',
-                                style: TextStyle(
-                                    color: Colors.amber,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold),
-                              ),
-                              Text(
-                                'Wykonane: $_completedTasksToday', // Licznik zadań
-                                style: TextStyle(
-                                    color: Colors.white70, fontSize: 14),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 8),
-                          Container(
-                            height: 200,
-                            child: PageView(
-                              controller: _taskPageController,
-                              children: [
-                                // Karta zadania z możliwością przesuwania
-                                Card(
-                                  color: Color(0xFF2C3E50),
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12)),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(16.0),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                _currentTask.title,
-                                                style: TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 16,
-                                                    fontWeight:
-                                                        FontWeight.bold),
-                                              ),
-                                            ),
-                                            Container(
-                                              padding: EdgeInsets.symmetric(
-                                                  horizontal: 8, vertical: 4),
-                                              decoration: BoxDecoration(
-                                                color: ElementalEnergy
-                                                        .getElementColor(
-                                                            _currentTask
-                                                                .element)
-                                                    .withOpacity(0.2),
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                                border: Border.all(
-                                                  color: ElementalEnergy
-                                                      .getElementColor(
-                                                          _currentTask.element),
-                                                  width: 1,
-                                                ),
-                                              ),
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Icon(
-                                                    ElementalEnergy
-                                                        .getElementIcon(
-                                                            _currentTask
-                                                                .element),
-                                                    color: ElementalEnergy
-                                                        .getElementColor(
-                                                            _currentTask
-                                                                .element),
-                                                    size: 14,
-                                                  ),
-                                                  SizedBox(width: 4),
-                                                  Text(
-                                                    _currentTask.element,
-                                                    style: TextStyle(
-                                                      color: ElementalEnergy
-                                                          .getElementColor(
-                                                              _currentTask
-                                                                  .element),
-                                                      fontSize: 12,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(height: 8),
-                                        Text(
-                                          _currentTask.description,
-                                          style: TextStyle(
-                                              color: Colors.white70,
-                                              fontSize: 14),
-                                        ),
-                                        SizedBox(height: 8),
-                                        Text(
-                                          'Nagroda: +${_currentTask.xpReward} XP, +${_currentTask.elementalEnergy.round()} ${_currentTask.element}',
-                                          style: TextStyle(
-                                              color: Colors.greenAccent,
-                                              fontSize: 12),
-                                        ),
-                                        Spacer(),
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            ElevatedButton(
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: Colors.red,
-                                                shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            8)),
-                                              ),
-                                              onPressed: _taskCompleted
-                                                  ? null
-                                                  : _rejectTask,
-                                              child: Text('Odrzuć',
-                                                  style: TextStyle(
-                                                      color: Colors.white)),
-                                            ),
-                                            ElevatedButton(
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor:
-                                                    Color(0xFFD4AF37),
-                                                shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            8)),
-                                              ),
-                                              onPressed: _taskCompleted
-                                                  ? null
-                                                  : _completeDailyTask,
-                                              child: Text(
-                                                  _taskCompleted
-                                                      ? 'Wykonano'
-                                                      : 'Wykonaj',
-                                                  style: TextStyle(
-                                                      color: Colors.black)),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
+                          // Wyśrodkowany tytuł
+                          Center(
+                            child: Text(
+                              'Zadania Dnia',
+                              style: TextStyle(
+                                  color: Colors.amber,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold),
                             ),
                           ),
                           SizedBox(height: 8),
-                          Center(
-                            child: Text(
-                              'Przesuń kartę w lewo lub prawo aby zobaczyć więcej opcji',
-                              style: TextStyle(
-                                  color: Colors.white54,
-                                  fontSize: 12,
-                                  fontStyle: FontStyle.italic),
+
+                          // Strzałki przy liczniku kart
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              IconButton(
+                                onPressed: _previousTask,
+                                icon: Icon(Icons.arrow_back_ios,
+                                    color: Colors.amber, size: 20),
+                                padding: EdgeInsets.all(4),
+                              ),
+                              Text(
+                                '${_currentTaskIndex + 1} / ${TaskManager.allTasks.length}',
+                                style: TextStyle(
+                                    color: Colors.white70, fontSize: 14),
+                              ),
+                              IconButton(
+                                onPressed: _nextTask,
+                                icon: Icon(Icons.arrow_forward_ios,
+                                    color: Colors.amber, size: 20),
+                                padding: EdgeInsets.all(4),
+                              ),
+                            ],
+                          ),
+
+                          // Karta zadania z animacją
+                          SlideTransition(
+                            position: _cardSlideAnimation,
+                            child: Card(
+                              color: Color(0xFF2C3E50),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Row(
+                                  children: [
+                                    // Główna zawartość zadania
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            _currentTask.title,
+                                            style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold),
+                                          ),
+                                          SizedBox(height: 8),
+                                          Text(
+                                            _currentTask.description,
+                                            style: TextStyle(
+                                                color: Colors.white70,
+                                                fontSize: 14),
+                                          ),
+                                          SizedBox(height: 8),
+                                          Text(
+                                            'Nagroda: +${_currentTask.xpReward} XP, +${_currentTask.elementalEnergy.round()} ${_currentTask.element}',
+                                            style: TextStyle(
+                                                color: Colors.greenAccent,
+                                                fontSize: 12),
+                                          ),
+                                          SizedBox(height: 16),
+
+                                          // Przyciski równo rozmieszczone
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: ElevatedButton(
+                                                  style:
+                                                      ElevatedButton.styleFrom(
+                                                    backgroundColor: Colors.red,
+                                                    shape:
+                                                        RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        8)),
+                                                  ),
+                                                  onPressed: _taskCompleted
+                                                      ? null
+                                                      : _rejectTask,
+                                                  child: Text('Odrzuć',
+                                                      style: TextStyle(
+                                                          color: Colors.white)),
+                                                ),
+                                              ),
+                                              SizedBox(width: 12),
+                                              Expanded(
+                                                child: ElevatedButton(
+                                                  style:
+                                                      ElevatedButton.styleFrom(
+                                                    backgroundColor:
+                                                        Color(0xFFD4AF37),
+                                                    shape:
+                                                        RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        8)),
+                                                  ),
+                                                  onPressed: _taskCompleted
+                                                      ? null
+                                                      : _completeDailyTask,
+                                                  child: Text(
+                                                      _taskCompleted
+                                                          ? 'Wykonano'
+                                                          : 'Wykonaj',
+                                                      style: TextStyle(
+                                                          color: Colors.black)),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+
+                                    SizedBox(width: 16),
+
+                                    // Większy symbol żywiołu po prawej stronie
+                                    Container(
+                                      padding: EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: ElementalEnergy.getElementColor(
+                                                _currentTask.element)
+                                            .withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color:
+                                              ElementalEnergy.getElementColor(
+                                                  _currentTask.element),
+                                          width: 2,
+                                        ),
+                                      ),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            ElementalEnergy.getElementIcon(
+                                                _currentTask.element),
+                                            color:
+                                                ElementalEnergy.getElementColor(
+                                                    _currentTask.element),
+                                            size: 40,
+                                          ),
+                                          SizedBox(height: 4),
+                                          Text(
+                                            _currentTask.element,
+                                            style: TextStyle(
+                                              color: ElementalEnergy
+                                                  .getElementColor(
+                                                      _currentTask.element),
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
 
-                    // Szybkie Statystyki
+                    SizedBox(height: 16),
+
+                    // Dzisiejsze Statystyki (zmienione z "Szybkie Statystyki")
                     Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Text(
-                        'Szybkie Statystyki',
+                        'Dzisiejsze Statystyki',
                         style: TextStyle(
                             color: Colors.amber,
                             fontSize: 18,
@@ -1113,16 +1296,20 @@ class _DashboardScreenState extends State<DashboardScreen>
                               icon: Icons.star,
                               label: 'Punkty XP',
                               value: '${userState.xp}'),
-                          StatCard(
-                              icon: Icons.task_alt,
-                              label: 'Zadania',
-                              value:
-                                  '$_completedTasksToday/15'), // Zaktualizowany licznik
+                          GestureDetector(
+                            onTap: _navigateToCompletedTasks,
+                            child: StatCard(
+                                icon: Icons.task_alt,
+                                label: 'Zadania dziś',
+                                value: '$todayCompletedTasks'),
+                          ),
                         ],
                       ),
                     ),
 
-                    // Wskazówki Astrologiczne
+                    SizedBox(height: 16),
+
+                    // Wskazówki Astrologiczne z przyciskiem "Dowiedz się więcej" pod informacją
                     Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Card(
@@ -1146,6 +1333,23 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 'Księżyc w Skorpionie – dziś skup się na introspekcji.',
                                 style: TextStyle(
                                     color: Colors.white, fontSize: 16),
+                              ),
+                              SizedBox(height: 12),
+                              // Przycisk pod informacją
+                              Center(
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.purple,
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8)),
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: 20, vertical: 10),
+                                  ),
+                                  onPressed: _navigateToAstrology,
+                                  child: Text('Dowiedz się więcej',
+                                      style: TextStyle(
+                                          color: Colors.white, fontSize: 14)),
+                                ),
                               ),
                             ],
                           ),
@@ -1260,6 +1464,106 @@ class _DashboardScreenState extends State<DashboardScreen>
           ],
         ),
       ),
+    );
+  }
+}
+
+// Nowy ekran dla listy wykonanych zadań
+class CompletedTasksScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final completedTasks = CompletedTasksManager.completedTasks;
+    final todayTasks = completedTasks.where((task) {
+      final today = DateTime.now();
+      return task.completedAt.year == today.year &&
+          task.completedAt.month == today.month &&
+          task.completedAt.day == today.day;
+    }).toList();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'Wykonane Zadania',
+          style: TextStyle(
+              fontFamily: 'Cinzel', color: Colors.amber, fontSize: 22),
+        ),
+        backgroundColor: Color(0xFF1E293B),
+        elevation: 0,
+        iconTheme: IconThemeData(color: Colors.amber),
+      ),
+      backgroundColor: Color(0xFF1E293B),
+      body: todayTasks.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.task_alt, color: Colors.amber, size: 64),
+                  SizedBox(height: 16),
+                  Text(
+                    'Brak wykonanych zadań dzisiaj',
+                    style: TextStyle(color: Colors.white70, fontSize: 18),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Wróć do dashboardu i wykonaj swoje pierwsze zadanie!',
+                    style: TextStyle(color: Colors.white54, fontSize: 14),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              padding: EdgeInsets.all(16),
+              itemCount: todayTasks.length,
+              itemBuilder: (context, index) {
+                final task = todayTasks[index];
+                return Card(
+                  color: Color(0xFF2C3E50),
+                  margin: EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  child: ListTile(
+                    leading: Container(
+                      padding: EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: ElementalEnergy.getElementColor(task.element)
+                            .withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: ElementalEnergy.getElementColor(task.element),
+                          width: 1,
+                        ),
+                      ),
+                      child: Icon(
+                        ElementalEnergy.getElementIcon(task.element),
+                        color: ElementalEnergy.getElementColor(task.element),
+                        size: 20,
+                      ),
+                    ),
+                    title: Text(
+                      task.title,
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Nagroda: +${task.xpReward} XP, +${task.elementalEnergy.round()} ${task.element}',
+                          style: TextStyle(
+                              color: Colors.greenAccent, fontSize: 12),
+                        ),
+                        Text(
+                          'Wykonano: ${task.completedAt.hour.toString().padLeft(2, '0')}:${task.completedAt.minute.toString().padLeft(2, '0')}',
+                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                    trailing: Icon(Icons.check_circle, color: Colors.green),
+                  ),
+                );
+              },
+            ),
     );
   }
 }
