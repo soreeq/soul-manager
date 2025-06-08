@@ -1,6 +1,74 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import '../main.dart'; // Dostęp do globalnego klucza ScaffoldMessenger
 import '../user_state.dart'; // Dostęp do stanu użytkownika
+
+class ReflectionEntry {
+  final String text;
+  final String type; // 'reflection' lub 'gratitude'
+  final DateTime date;
+
+  ReflectionEntry(this.text, this.type, this.date);
+
+  Color get color =>
+      type == 'reflection' ? Colors.blue.shade100 : Colors.green.shade100;
+}
+
+class ReflectionJournal {
+  static final List<ReflectionEntry> _entries = [];
+
+  static List<ReflectionEntry> get entries => _entries;
+
+  static void addEntry(String text, String type) {
+    _entries.insert(0, ReflectionEntry(text, type, DateTime.now()));
+  }
+}
+
+class AuraManager {
+  static double aura = 100.0;
+  static DateTime lastUpdate = DateTime.now();
+  static Timer? _timer;
+
+  static const double maxAura = 100.0;
+  static const double auraDropPerTask =
+      100.0 / 15.0; // ~6.67 punktów za zadanie
+  static const double regenPerHour = 10.0;
+
+  static void initTimer() {
+    _timer?.cancel();
+    _timer = Timer.periodic(Duration(minutes: 1), (_) => updateAura());
+  }
+
+  static void updateAura() {
+    if (aura < maxAura) {
+      final now = DateTime.now();
+      final elapsed = now.difference(lastUpdate).inSeconds / 3600.0;
+      aura = (aura + elapsed * regenPerHour).clamp(0.0, maxAura);
+      lastUpdate = now;
+    }
+  }
+
+  static void consumeAura() {
+    if (aura >= auraDropPerTask) {
+      aura -= auraDropPerTask;
+      lastUpdate = DateTime.now();
+    }
+  }
+
+  static Duration timeToFull() {
+    if (aura >= maxAura) return Duration.zero;
+    final missing = maxAura - aura;
+    final hours = missing / regenPerHour;
+    return Duration(
+      hours: hours.floor(),
+      minutes: ((hours - hours.floor()) * 60).round(),
+    );
+  }
+
+  static void dispose() {
+    _timer?.cancel();
+  }
+}
 
 class DashboardScreen extends StatefulWidget {
   final String nickname;
@@ -22,18 +90,36 @@ class _DashboardScreenState extends State<DashboardScreen>
   UserState userState = UserState();
   bool _taskCompleted = false;
   String _currentTask = 'Medytacja w parku: +15 Energii Ziemi, +50 XP';
+
+  // Kontrolery animacji
   late AnimationController _animationController;
   late Animation<double> _animation;
   late AnimationController _xpBarController;
   late Animation<double> _xpBarAnimation;
   late AnimationController _auraBarController;
   late Animation<double> _auraBarAnimation;
+
   double _previousXpBarValue = 0.0;
   double _previousAuraValue = 0.0;
+
+  // Kontrolery tekstów
+  final TextEditingController _reflectionController = TextEditingController();
+  final TextEditingController _gratitudeController = TextEditingController();
+
+  Timer? _auraUpdateTimer;
 
   @override
   void initState() {
     super.initState();
+
+    // Inicjalizacja AuraManager
+    AuraManager.initTimer();
+
+    // Timer do aktualizacji UI co minutę
+    _auraUpdateTimer = Timer.periodic(Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
+
     // Animacja dla efektu awansu
     _animationController = AnimationController(
       duration: const Duration(seconds: 2),
@@ -43,6 +129,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       parent: _animationController,
       curve: Curves.easeInOut,
     );
+
     // Animacja dla paska XP
     _xpBarController = AnimationController(
       duration: const Duration(milliseconds: 1500),
@@ -51,13 +138,14 @@ class _DashboardScreenState extends State<DashboardScreen>
     _xpBarAnimation = Tween<double>(begin: 0.0, end: 0.0).animate(
       CurvedAnimation(parent: _xpBarController, curve: Curves.easeOut),
     );
+
     // Animacja dla paska Aury
     _auraBarController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
     _auraBarAnimation = Tween<double>(
-            begin: userState.aura / 100.0, end: userState.aura / 100.0)
+            begin: AuraManager.aura / 100.0, end: AuraManager.aura / 100.0)
         .animate(
       CurvedAnimation(parent: _auraBarController, curve: Curves.easeOut),
     );
@@ -68,26 +156,28 @@ class _DashboardScreenState extends State<DashboardScreen>
     _animationController.dispose();
     _xpBarController.dispose();
     _auraBarController.dispose();
+    _reflectionController.dispose();
+    _gratitudeController.dispose();
+    _auraUpdateTimer?.cancel();
+    AuraManager.dispose();
     super.dispose();
   }
 
-  // Przykładowa funkcja generująca sentencję na dzień na podstawie ułożenia planet
   String getDailyReflection() {
     DateTime today = DateTime.now();
     int dayOfWeek = today.weekday;
     List<String> reflections = [
-      "Mars w Strzelcu: Działaj odważnie i podążaj za swoimi marzeniami.", // Poniedziałek
-      "Księżyc w Raku: Skup się na introspekcji i dbaj o swoje emocje.", // Wtorek
-      "Merkury w Bliźniętach: Wyrażaj swoje myśli z jasnością i ciekawością.", // Środa
-      "Wenus w Wadze: Szukaj harmonii w relacjach i celebruj piękno.", // Czwartek
-      "Jowisz w Rybach: Otwórz się na rozwój duchowy i nowe możliwości.", // Piątek
-      "Saturn w Koziorożcu: Buduj swoje cele z cierpliwością i determinacją.", // Sobota
-      "Słońce w Lwie: Świeć jasno i inspiruj innych swoją autentycznością.", // Niedziela
+      "Mars w Strzelcu: Działaj odważnie i podążaj za swoimi marzeniami.",
+      "Księżyc w Raku: Skup się na introspekcji i dbaj o swoje emocje.",
+      "Merkury w Bliźniętach: Wyrażaj swoje myśli z jasnością i ciekawością.",
+      "Wenus w Wadze: Szukaj harmonii w relacjach i celebruj piękno.",
+      "Jowisz w Rybach: Otwórz się na rozwój duchowy i nowe możliwości.",
+      "Saturn w Koziorożcu: Buduj swoje cele z cierpliwością i determinacją.",
+      "Słońce w Lwie: Świeć jasno i inspiruj innych swoją autentycznością.",
     ];
     return reflections[dayOfWeek - 1];
   }
 
-  // Funkcja wyświetlająca efekt awansu na nowy poziom z fajerwerkami
   void _showLevelUpEffect(String title) {
     _animationController.forward(from: 0.0);
     showDialog(
@@ -111,7 +201,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               ),
               child: Stack(
                 children: [
-                  // Symulacja fajerwerków (placeholder, można zastąpić biblioteką particle effects)
+                  // Efekt fajerwerków
                   Positioned(
                     top: -50,
                     left: -50,
@@ -210,22 +300,40 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  // Metoda do obsługi ukończenia zadania dnia
   void _completeDailyTask() {
     if (_taskCompleted) return;
+
+    // Sprawdź czy mamy wystarczająco aury
+    if (AuraManager.aura < AuraManager.auraDropPerTask) {
+      MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(
+          content: Text('Niewystarczająca aura! Poczekaj na regenerację.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _taskCompleted = true;
-      _previousAuraValue = userState.aura / 100.0;
+      _previousAuraValue = AuraManager.aura / 100.0;
       _previousXpBarValue = userState.expBar;
-      bool levelUp = userState.completeTask(50, 15); // +50 XP, +15 Aury
+
+      // Zużyj aurę
+      AuraManager.consumeAura();
+
+      bool levelUp = userState.completeTask(50, 15); // +50 XP, +15 do statystyk
+
       // Animacja paska Aury
       _auraBarAnimation = Tween<double>(
         begin: _previousAuraValue,
-        end: userState.aura / 100.0,
+        end: AuraManager.aura / 100.0,
       ).animate(
         CurvedAnimation(parent: _auraBarController, curve: Curves.easeOut),
       );
       _auraBarController.forward(from: 0.0);
+
       // Animacja paska XP
       _xpBarAnimation = Tween<double>(
         begin: _previousXpBarValue,
@@ -234,9 +342,11 @@ class _DashboardScreenState extends State<DashboardScreen>
         CurvedAnimation(parent: _xpBarController, curve: Curves.easeOut),
       );
       _xpBarController.forward(from: 0.0);
+
       if (levelUp) {
         _showLevelUpEffect(userState.title);
       }
+
       // Po kilku sekundach pokazanie nowego zadania
       Future.delayed(Duration(seconds: 3), () {
         if (mounted) {
@@ -255,19 +365,57 @@ class _DashboardScreenState extends State<DashboardScreen>
         }
       });
     });
-    // Pokazanie SnackBar
+
     MyApp.scaffoldMessengerKey.currentState?.removeCurrentSnackBar();
     MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(
-        content: Text('Zadanie wykonane! Otrzymano +15 Energii Ziemi i +50 XP'),
+        content: Text('Zadanie wykonane! Otrzymano +50 XP'),
         backgroundColor: Color(0xFFD4AF37),
         duration: Duration(seconds: 3),
       ),
     );
   }
 
+  void _addReflection() {
+    if (_reflectionController.text.isNotEmpty) {
+      ReflectionJournal.addEntry(_reflectionController.text, 'reflection');
+      userState.completeTask(10, 0); // +10 XP za refleksję
+      _reflectionController.clear();
+
+      MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(
+          content: Text('Refleksja dodana! Otrzymano +10 XP'),
+          backgroundColor: Colors.blue,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      setState(() {});
+    }
+  }
+
+  void _addGratitude() {
+    if (_gratitudeController.text.isNotEmpty) {
+      ReflectionJournal.addEntry(_gratitudeController.text, 'gratitude');
+      userState.completeTask(10, 0); // +10 XP za wdzięczność
+      _gratitudeController.clear();
+
+      MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(
+          content: Text('Wdzięczność dodana! Otrzymano +10 XP'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      setState(() {});
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Aktualizuj aurę przed renderowaniem
+    AuraManager.updateAura();
+    final timeToFull = AuraManager.timeToFull();
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -299,7 +447,6 @@ class _DashboardScreenState extends State<DashboardScreen>
               ),
               child: Row(
                 children: [
-                  // Awatar
                   Container(
                     width: 80,
                     height: 80,
@@ -307,14 +454,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.amber, width: 2),
                       image: DecorationImage(
-                        image: AssetImage(
-                            'assets/avatar_placeholder.png'), // Placeholder dla awatara
+                        image: AssetImage('assets/avatar_placeholder.png'),
                         fit: BoxFit.cover,
                       ),
                     ),
                   ),
                   SizedBox(width: 16),
-                  // Informacje o użytkowniku
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -338,7 +483,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ],
               ),
             ),
-            // Pasek Energii Duchowej (Aura)
+
+            // Pasek Aury z regeneracją
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
@@ -356,8 +502,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     animation: _auraBarAnimation,
                     builder: (context, child) {
                       return LinearProgressIndicator(
-                        value:
-                            _auraBarAnimation.value, // Animowana wartość Aury
+                        value: _auraBarAnimation.value,
                         minHeight: 12,
                         backgroundColor: Colors.grey.shade700,
                         valueColor:
@@ -368,12 +513,18 @@ class _DashboardScreenState extends State<DashboardScreen>
                   ),
                   SizedBox(height: 4),
                   Text(
-                    'Energia Duchowa: ${userState.aura}/100',
+                    'Energia Duchowa: ${AuraManager.aura.round()}/100',
                     style: TextStyle(color: Colors.white70, fontSize: 14),
                   ),
+                  if (AuraManager.aura < AuraManager.maxAura)
+                    Text(
+                      'Do pełnej regeneracji: ${timeToFull.inHours}h ${timeToFull.inMinutes % 60}min',
+                      style: TextStyle(color: Colors.orange, fontSize: 12),
+                    ),
                 ],
               ),
             ),
+
             // Pasek XP
             Padding(
               padding: const EdgeInsets.all(16.0),
@@ -392,8 +543,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     animation: _xpBarAnimation,
                     builder: (context, child) {
                       return LinearProgressIndicator(
-                        value:
-                            _xpBarAnimation.value, // Animowana wartość paska XP
+                        value: _xpBarAnimation.value,
                         minHeight: 12,
                         backgroundColor: Colors.grey.shade700,
                         valueColor:
@@ -410,6 +560,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ],
               ),
             ),
+
             // Zadanie Dnia
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -453,6 +604,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
               ),
             ),
+
             // Szybkie Statystyki
             Padding(
               padding: const EdgeInsets.all(16.0),
@@ -478,6 +630,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ],
               ),
             ),
+
             // Wskazówki Astrologiczne
             Padding(
               padding: const EdgeInsets.all(16.0),
@@ -507,7 +660,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
               ),
             ),
-            // Sekcja: Daily Reflection
+
+            // Sekcja: Daily Reflection z możliwością dodawania
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Card(
@@ -533,6 +687,74 @@ class _DashboardScreenState extends State<DashboardScreen>
                             color: Colors.white,
                             fontSize: 16,
                             fontStyle: FontStyle.italic),
+                      ),
+                      SizedBox(height: 16),
+
+                      // Dodawanie własnej refleksji
+                      TextField(
+                        controller: _reflectionController,
+                        decoration: InputDecoration(
+                          labelText: 'Dodaj własną refleksję',
+                          labelStyle: TextStyle(color: Colors.blue),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide:
+                                BorderSide(color: Colors.blue.withOpacity(0.5)),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.blue),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          filled: true,
+                          fillColor: Color(0xFF34495E),
+                        ),
+                        style: TextStyle(color: Colors.white),
+                        maxLines: 2,
+                      ),
+                      SizedBox(height: 8),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: _addReflection,
+                        child: Text('Dodaj refleksję (+10 XP)',
+                            style: TextStyle(color: Colors.white)),
+                      ),
+                      SizedBox(height: 16),
+
+                      // Dodawanie wdzięczności
+                      TextField(
+                        controller: _gratitudeController,
+                        decoration: InputDecoration(
+                          labelText: 'Za co jesteś dziś wdzięczny?',
+                          labelStyle: TextStyle(color: Colors.green),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(
+                                color: Colors.green.withOpacity(0.5)),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.green),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          filled: true,
+                          fillColor: Color(0xFF34495E),
+                        ),
+                        style: TextStyle(color: Colors.white),
+                        maxLines: 2,
+                      ),
+                      SizedBox(height: 8),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: _addGratitude,
+                        child: Text('Dodaj wdzięczność (+10 XP)',
+                            style: TextStyle(color: Colors.white)),
                       ),
                     ],
                   ),
