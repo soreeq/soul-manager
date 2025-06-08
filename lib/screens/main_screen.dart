@@ -5,6 +5,7 @@ import 'mood_scanner_screen.dart';
 import 'cosmogram_analysis_screen.dart';
 import 'profile_screen.dart';
 import '../main.dart'; // Dostęp do globalnego klucza ScaffoldMessenger
+import '../user_state.dart'; // Dostęp do stanu użytkownika
 
 class MainScreen extends StatefulWidget {
   final String nickname;
@@ -23,8 +24,8 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
-
   late List<Widget> _screens;
+  UserState userState = UserState(); // Globalny stan użytkownika
 
   @override
   void initState() {
