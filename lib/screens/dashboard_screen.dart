@@ -18,15 +18,23 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   UserState userState = UserState();
   bool _taskCompleted = false;
+  String _currentTask = 'Medytacja w parku: +15 Energii Ziemi, +50 XP';
   late AnimationController _animationController;
   late Animation<double> _animation;
+  late AnimationController _xpBarController;
+  late Animation<double> _xpBarAnimation;
+  late AnimationController _auraBarController;
+  late Animation<double> _auraBarAnimation;
+  double _previousXpBarValue = 0.0;
+  double _previousAuraValue = 0.0;
 
   @override
   void initState() {
     super.initState();
+    // Animacja dla efektu awansu
     _animationController = AnimationController(
       duration: const Duration(seconds: 2),
       vsync: this,
@@ -35,11 +43,31 @@ class _DashboardScreenState extends State<DashboardScreen>
       parent: _animationController,
       curve: Curves.easeInOut,
     );
+    // Animacja dla paska XP
+    _xpBarController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+    _xpBarAnimation = Tween<double>(begin: 0.0, end: 0.0).animate(
+      CurvedAnimation(parent: _xpBarController, curve: Curves.easeOut),
+    );
+    // Animacja dla paska Aury
+    _auraBarController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+    _auraBarAnimation = Tween<double>(
+            begin: userState.aura / 100.0, end: userState.aura / 100.0)
+        .animate(
+      CurvedAnimation(parent: _auraBarController, curve: Curves.easeOut),
+    );
   }
 
   @override
   void dispose() {
     _animationController.dispose();
+    _xpBarController.dispose();
+    _auraBarController.dispose();
     super.dispose();
   }
 
@@ -59,7 +87,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     return reflections[dayOfWeek - 1];
   }
 
-  // Funkcja wyświetlająca efekt awansu na nowy poziom
+  // Funkcja wyświetlająca efekt awansu na nowy poziom z fajerwerkami
   void _showLevelUpEffect(String title) {
     _animationController.forward(from: 0.0);
     showDialog(
@@ -81,40 +109,97 @@ class _DashboardScreenState extends State<DashboardScreen>
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: Colors.amber, width: 3),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+              child: Stack(
                 children: [
-                  Text(
-                    'Gratulacje!',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Cinzel',
+                  // Symulacja fajerwerków (placeholder, można zastąpić biblioteką particle effects)
+                  Positioned(
+                    top: -50,
+                    left: -50,
+                    child: AnimatedContainer(
+                      duration: Duration(milliseconds: 500),
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.red.withOpacity(0.5),
+                      ),
                     ),
                   ),
-                  SizedBox(height: 10),
-                  Text(
-                    'Awansowałeś na nowy poziom: $title!',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                  Positioned(
+                    top: -50,
+                    right: -50,
+                    child: AnimatedContainer(
+                      duration: Duration(milliseconds: 700),
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.green.withOpacity(0.5),
+                      ),
                     ),
                   ),
-                  SizedBox(height: 20),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Color(0xFFD4AF37),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
+                  Positioned(
+                    bottom: -50,
+                    left: -50,
+                    child: AnimatedContainer(
+                      duration: Duration(milliseconds: 600),
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.blue.withOpacity(0.5),
+                      ),
                     ),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      _animationController.reset();
-                    },
-                    child: Text('Kontynuuj',
-                        style: TextStyle(color: Colors.black)),
+                  ),
+                  Positioned(
+                    bottom: -50,
+                    right: -50,
+                    child: AnimatedContainer(
+                      duration: Duration(milliseconds: 800),
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.yellow.withOpacity(0.5),
+                      ),
+                    ),
+                  ),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Gratulacje!',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Cinzel',
+                        ),
+                      ),
+                      SizedBox(height: 10),
+                      Text(
+                        'Awansowałeś na nowy poziom: $title!',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 20),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Color(0xFFD4AF37),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          _animationController.reset();
+                        },
+                        child: Text('Kontynuuj',
+                            style: TextStyle(color: Colors.black)),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -122,6 +207,62 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
         );
       },
+    );
+  }
+
+  // Metoda do obsługi ukończenia zadania dnia
+  void _completeDailyTask() {
+    if (_taskCompleted) return;
+    setState(() {
+      _taskCompleted = true;
+      _previousAuraValue = userState.aura / 100.0;
+      _previousXpBarValue = userState.expBar;
+      bool levelUp = userState.completeTask(50, 15); // +50 XP, +15 Aury
+      // Animacja paska Aury
+      _auraBarAnimation = Tween<double>(
+        begin: _previousAuraValue,
+        end: userState.aura / 100.0,
+      ).animate(
+        CurvedAnimation(parent: _auraBarController, curve: Curves.easeOut),
+      );
+      _auraBarController.forward(from: 0.0);
+      // Animacja paska XP
+      _xpBarAnimation = Tween<double>(
+        begin: _previousXpBarValue,
+        end: userState.expBar,
+      ).animate(
+        CurvedAnimation(parent: _xpBarController, curve: Curves.easeOut),
+      );
+      _xpBarController.forward(from: 0.0);
+      if (levelUp) {
+        _showLevelUpEffect(userState.title);
+      }
+      // Po kilku sekundach pokazanie nowego zadania
+      Future.delayed(Duration(seconds: 3), () {
+        if (mounted) {
+          setState(() {
+            _taskCompleted = false;
+            _currentTask = 'Refleksja wieczorna: +10 Energii Ducha, +30 XP';
+          });
+          MyApp.scaffoldMessengerKey.currentState?.removeCurrentSnackBar();
+          MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+            SnackBar(
+              content: Text('Nowe zadanie dnia dostępne!'),
+              backgroundColor: Color(0xFFD4AF37),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      });
+    });
+    // Pokazanie SnackBar
+    MyApp.scaffoldMessengerKey.currentState?.removeCurrentSnackBar();
+    MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+      SnackBar(
+        content: Text('Zadanie wykonane! Otrzymano +15 Energii Ziemi i +50 XP'),
+        backgroundColor: Color(0xFFD4AF37),
+        duration: Duration(seconds: 3),
+      ),
     );
   }
 
@@ -211,13 +352,19 @@ class _DashboardScreenState extends State<DashboardScreen>
                         fontWeight: FontWeight.bold),
                   ),
                   SizedBox(height: 8),
-                  LinearProgressIndicator(
-                    value: userState.aura / 100.0, // Wartość Aury jako procent
-                    minHeight: 12,
-                    backgroundColor: Colors.grey.shade700,
-                    valueColor:
-                        AlwaysStoppedAnimation<Color>(Color(0xFFD4AF37)),
-                    borderRadius: BorderRadius.circular(6),
+                  AnimatedBuilder(
+                    animation: _auraBarAnimation,
+                    builder: (context, child) {
+                      return LinearProgressIndicator(
+                        value:
+                            _auraBarAnimation.value, // Animowana wartość Aury
+                        minHeight: 12,
+                        backgroundColor: Colors.grey.shade700,
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Color(0xFFD4AF37)),
+                        borderRadius: BorderRadius.circular(6),
+                      );
+                    },
                   ),
                   SizedBox(height: 4),
                   Text(
@@ -241,13 +388,19 @@ class _DashboardScreenState extends State<DashboardScreen>
                         fontWeight: FontWeight.bold),
                   ),
                   SizedBox(height: 8),
-                  LinearProgressIndicator(
-                    value: userState.expBar, // Wartość paska XP jako procent
-                    minHeight: 12,
-                    backgroundColor: Colors.grey.shade700,
-                    valueColor:
-                        AlwaysStoppedAnimation<Color>(Colors.blueAccent),
-                    borderRadius: BorderRadius.circular(6),
+                  AnimatedBuilder(
+                    animation: _xpBarAnimation,
+                    builder: (context, child) {
+                      return LinearProgressIndicator(
+                        value:
+                            _xpBarAnimation.value, // Animowana wartość paska XP
+                        minHeight: 12,
+                        backgroundColor: Colors.grey.shade700,
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Colors.blueAccent),
+                        borderRadius: BorderRadius.circular(6),
+                      );
+                    },
                   ),
                   SizedBox(height: 4),
                   Text(
@@ -278,7 +431,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       ),
                       SizedBox(height: 8),
                       Text(
-                        'Medytacja w parku: +15 Energii Ziemi, +50 XP',
+                        _currentTask,
                         style: TextStyle(color: Colors.white, fontSize: 16),
                       ),
                       SizedBox(height: 12),
@@ -290,29 +443,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8)),
                           ),
-                          onPressed: _taskCompleted
-                              ? null
-                              : () {
-                                  setState(() {
-                                    _taskCompleted = true;
-                                    bool levelUp = userState.completeTask(
-                                        50, 15); // +50 XP, +15 Aury
-                                    if (levelUp) {
-                                      _showLevelUpEffect(userState.title);
-                                    }
-                                  });
-                                  MyApp.scaffoldMessengerKey.currentState
-                                      ?.removeCurrentSnackBar();
-                                  MyApp.scaffoldMessengerKey.currentState
-                                      ?.showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                          'Zadanie wykonane! Otrzymano +15 Energii Ziemi i +50 XP'),
-                                      backgroundColor: Color(0xFFD4AF37),
-                                      duration: Duration(seconds: 3),
-                                    ),
-                                  );
-                                },
+                          onPressed: _taskCompleted ? null : _completeDailyTask,
                           child: Text(_taskCompleted ? 'Wykonano' : 'Wykonaj',
                               style: TextStyle(color: Colors.black)),
                         ),
