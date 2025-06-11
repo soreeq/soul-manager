@@ -24,6 +24,13 @@ class MyApp extends StatelessWidget {
       scaffoldMessengerKey:
           scaffoldMessengerKey, // Globalny klucz dla SnackBarów
       home: StartScreen(),
+      routes: {
+        '/astrology/daily_transits': (context) => DailyTransitsScreen(),
+      },
+      onGenerateRoute: (settings) {
+        // Możesz dodać bardziej złożoną logikę tras, jeśli będzie potrzebna
+        return null;
+      },
     );
   }
 }

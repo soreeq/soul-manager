@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:soul_manager/screens/tasks_screen.dart';
 import 'dart:async';
 import 'dart:math';
 import '../main.dart'; // Dostęp do globalnego klucza ScaffoldMessenger
 import '../user_state.dart'; // Dostęp do stanu użytkownika
-import 'cosmogram_analysis_screen.dart'; // Import dla nawigacji do astrologii
 
 class ReflectionEntry {
   final String text;
@@ -326,6 +326,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   late Animation<double> _auraBarAnimation;
   late AnimationController _cardAnimationController;
   late Animation<Offset> _cardSlideAnimation;
+  late Animation<double> _cardRotationAnimation;
+  late Animation<double> _cardScaleAnimation;
 
   // Kontrolery animacji dla pasków żywiołów
   late Map<String, AnimationController> _elementalBarControllers;
@@ -365,12 +367,28 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     // Animacja dla karty zadania
     _cardAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 600),
       vsync: this,
     );
     _cardSlideAnimation = Tween<Offset>(
       begin: Offset.zero,
       end: Offset(1.5, 0),
+    ).animate(CurvedAnimation(
+      parent: _cardAnimationController,
+      curve: Curves.easeInOut,
+    ));
+
+    _cardRotationAnimation = Tween<double>(
+      begin: 0.0,
+      end: 0.1,
+    ).animate(CurvedAnimation(
+      parent: _cardAnimationController,
+      curve: Curves.easeInOut,
+    ));
+
+    _cardScaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.8,
     ).animate(CurvedAnimation(
       parent: _cardAnimationController,
       curve: Curves.easeInOut,
@@ -609,17 +627,15 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   void _navigateToAstrology() {
-    // Bezpieczna nawigacja do ekranu astrologii
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => CosmogramAnalysisScreen(),
+        builder: (context) => DailyTransitsScreen(),
       ),
     );
   }
 
   void _navigateToCompletedTasks() {
-    // Nawigacja do listy wykonanych zadań
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -628,22 +644,40 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
+  void _navigateToTasks() {
+    // Nawigacja do ekranu zadań przez główną nawigację
+    // Ta funkcja będzie wywołana przez MainScreen
+  }
+
   void _nextTask() {
-    setState(() {
-      _currentTaskIndex = (_currentTaskIndex + 1) % TaskManager.allTasks.length;
+    _cardSlideAnimation = Tween<Offset>(
+      begin: Offset.zero,
+      end: Offset(1.5, 0),
+    ).animate(CurvedAnimation(
+      parent: _cardAnimationController,
+      curve: Curves.easeInOut,
+    ));
+
+    _cardAnimationController.forward().then((_) {
+      setState(() {
+        _currentTaskIndex =
+            (_currentTaskIndex + 1) % TaskManager.allTasks.length;
+      });
+
+      // Animacja wejścia z lewej strony
+      _cardSlideAnimation = Tween<Offset>(
+        begin: Offset(-1.5, 0),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(
+        parent: _cardAnimationController,
+        curve: Curves.easeInOut,
+      ));
+
+      _cardAnimationController.reverse();
     });
   }
 
   void _previousTask() {
-    setState(() {
-      _currentTaskIndex =
-          (_currentTaskIndex - 1 + TaskManager.allTasks.length) %
-              TaskManager.allTasks.length;
-    });
-  }
-
-  void _rejectTask() {
-    // Animacja karty w lewo (odrzucenie)
     _cardSlideAnimation = Tween<Offset>(
       begin: Offset.zero,
       end: Offset(-1.5, 0),
@@ -655,9 +689,47 @@ class _DashboardScreenState extends State<DashboardScreen>
     _cardAnimationController.forward().then((_) {
       setState(() {
         _currentTaskIndex =
+            (_currentTaskIndex - 1 + TaskManager.allTasks.length) %
+                TaskManager.allTasks.length;
+      });
+
+      // Animacja wejścia z prawej strony
+      _cardSlideAnimation = Tween<Offset>(
+        begin: Offset(1.5, 0),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(
+        parent: _cardAnimationController,
+        curve: Curves.easeInOut,
+      ));
+
+      _cardAnimationController.reverse();
+    });
+  }
+
+  void _rejectTask() {
+    // Animacja rozpadu - karta spada w dół z obrotem
+    _cardSlideAnimation = Tween<Offset>(
+      begin: Offset.zero,
+      end: Offset(0, 2.0),
+    ).animate(CurvedAnimation(
+      parent: _cardAnimationController,
+      curve: Curves.easeIn,
+    ));
+
+    _cardRotationAnimation = Tween<double>(
+      begin: 0.0,
+      end: 0.5,
+    ).animate(CurvedAnimation(
+      parent: _cardAnimationController,
+      curve: Curves.easeIn,
+    ));
+
+    _cardAnimationController.forward().then((_) {
+      setState(() {
+        _currentTaskIndex =
             (_currentTaskIndex + 1) % TaskManager.allTasks.length;
       });
-      _cardAnimationController.reverse();
+      _cardAnimationController.reset();
     });
 
     MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
@@ -684,13 +756,21 @@ class _DashboardScreenState extends State<DashboardScreen>
       return;
     }
 
-    // Animacja karty w prawo (wykonanie)
+    // Animacja zatwierdzenia - karta unosi się w górę ze świeceniem
     _cardSlideAnimation = Tween<Offset>(
       begin: Offset.zero,
-      end: Offset(1.5, 0),
+      end: Offset(0, -2.0),
     ).animate(CurvedAnimation(
       parent: _cardAnimationController,
-      curve: Curves.easeInOut,
+      curve: Curves.easeOut,
+    ));
+
+    _cardScaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 1.2,
+    ).animate(CurvedAnimation(
+      parent: _cardAnimationController,
+      curve: Curves.easeOut,
     ));
 
     _cardAnimationController.forward().then((_) {
@@ -761,7 +841,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               _currentTaskIndex =
                   (_currentTaskIndex + 1) % TaskManager.allTasks.length;
             });
-            _cardAnimationController.reverse();
+            _cardAnimationController.reset();
             MyApp.scaffoldMessengerKey.currentState?.removeCurrentSnackBar();
             MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
               SnackBar(
@@ -891,7 +971,6 @@ class _DashboardScreenState extends State<DashboardScreen>
         ),
         child: Column(
           children: [
-            // Usunięto AppBar z napisem "Dashboard adept początkujący"
             SizedBox(height: 50), // Przestrzeń na status bar
             Expanded(
               child: SingleChildScrollView(
@@ -1087,25 +1166,13 @@ class _DashboardScreenState extends State<DashboardScreen>
 
                     SizedBox(height: 16),
 
-                    // Zadanie Dnia - wyśrodkowany tytuł, strzałki przy liczniku
+                    // Zadanie Dnia - bez tytułu, tylko nawigacja i karta
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          // Wyśrodkowany tytuł
-                          Center(
-                            child: Text(
-                              'Zadania Dnia',
-                              style: TextStyle(
-                                  color: Colors.amber,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          SizedBox(height: 8),
-
-                          // Strzałki przy liczniku kart
+                          // Nawigacja strzałkami
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -1129,145 +1196,207 @@ class _DashboardScreenState extends State<DashboardScreen>
                             ],
                           ),
 
-                          // Karta zadania z animacją
-                          SlideTransition(
-                            position: _cardSlideAnimation,
-                            child: Card(
-                              color: Color(0xFF2C3E50),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12)),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Row(
-                                  children: [
-                                    // Główna zawartość zadania
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            _currentTask.title,
-                                            style: TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold),
-                                          ),
-                                          SizedBox(height: 8),
-                                          Text(
-                                            _currentTask.description,
-                                            style: TextStyle(
-                                                color: Colors.white70,
-                                                fontSize: 14),
-                                          ),
-                                          SizedBox(height: 8),
-                                          Text(
-                                            'Nagroda: +${_currentTask.xpReward} XP, +${_currentTask.elementalEnergy.round()} ${_currentTask.element}',
-                                            style: TextStyle(
-                                                color: Colors.greenAccent,
-                                                fontSize: 12),
-                                          ),
-                                          SizedBox(height: 16),
-
-                                          // Przyciski równo rozmieszczone
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: ElevatedButton(
-                                                  style:
-                                                      ElevatedButton.styleFrom(
-                                                    backgroundColor: Colors.red,
-                                                    shape:
-                                                        RoundedRectangleBorder(
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        8)),
+                          // Karta zadania z nowymi animacjami
+                          AnimatedBuilder(
+                            animation: _cardAnimationController,
+                            builder: (context, child) {
+                              return Transform.translate(
+                                offset: _cardSlideAnimation.value,
+                                child: Transform.rotate(
+                                  angle: _cardRotationAnimation.value,
+                                  child: Transform.scale(
+                                    scale: _cardScaleAnimation.value,
+                                    child: Card(
+                                      color: Color(0xFF2C3E50),
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12)),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(16.0),
+                                        child: Row(
+                                          children: [
+                                            // Główna zawartość zadania
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    _currentTask.title,
+                                                    style: TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 16,
+                                                        fontWeight:
+                                                            FontWeight.bold),
                                                   ),
-                                                  onPressed: _taskCompleted
-                                                      ? null
-                                                      : _rejectTask,
-                                                  child: Text('Odrzuć',
-                                                      style: TextStyle(
-                                                          color: Colors.white)),
+                                                  SizedBox(height: 8),
+                                                  Text(
+                                                    _currentTask.description,
+                                                    style: TextStyle(
+                                                        color: Colors.white70,
+                                                        fontSize: 14),
+                                                  ),
+                                                  SizedBox(height: 8),
+                                                  Text(
+                                                    'Nagroda: +${_currentTask.xpReward} XP, +${_currentTask.elementalEnergy.round()} ${_currentTask.element}',
+                                                    style: TextStyle(
+                                                        color:
+                                                            Colors.greenAccent,
+                                                        fontSize: 12),
+                                                  ),
+                                                  SizedBox(height: 16),
+
+                                                  // Przyciski równo rozmieszczone
+                                                  Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: ElevatedButton(
+                                                          style: ElevatedButton
+                                                              .styleFrom(
+                                                            backgroundColor:
+                                                                Colors.red,
+                                                            shape: RoundedRectangleBorder(
+                                                                borderRadius:
+                                                                    BorderRadius
+                                                                        .circular(
+                                                                            8)),
+                                                          ),
+                                                          onPressed:
+                                                              _taskCompleted
+                                                                  ? null
+                                                                  : _rejectTask,
+                                                          child: Text('Odrzuć',
+                                                              style: TextStyle(
+                                                                  color: Colors
+                                                                      .white)),
+                                                        ),
+                                                      ),
+                                                      SizedBox(width: 12),
+                                                      Expanded(
+                                                        child: ElevatedButton(
+                                                          style: ElevatedButton
+                                                              .styleFrom(
+                                                            backgroundColor:
+                                                                Color(
+                                                                    0xFFD4AF37),
+                                                            shape: RoundedRectangleBorder(
+                                                                borderRadius:
+                                                                    BorderRadius
+                                                                        .circular(
+                                                                            8)),
+                                                          ),
+                                                          onPressed: _taskCompleted
+                                                              ? null
+                                                              : _completeDailyTask,
+                                                          child: Text(
+                                                              _taskCompleted
+                                                                  ? 'Wykonano'
+                                                                  : 'Wykonaj',
+                                                              style: TextStyle(
+                                                                  color: Colors
+                                                                      .black)),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+
+                                            SizedBox(width: 16),
+
+                                            // Większy symbol żywiołu po prawej stronie
+                                            Container(
+                                              padding: EdgeInsets.all(16),
+                                              decoration: BoxDecoration(
+                                                color: ElementalEnergy
+                                                        .getElementColor(
+                                                            _currentTask
+                                                                .element)
+                                                    .withOpacity(0.2),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                                border: Border.all(
+                                                  color: ElementalEnergy
+                                                      .getElementColor(
+                                                          _currentTask.element),
+                                                  width: 2,
                                                 ),
                                               ),
-                                              SizedBox(width: 12),
-                                              Expanded(
-                                                child: ElevatedButton(
-                                                  style:
-                                                      ElevatedButton.styleFrom(
-                                                    backgroundColor:
-                                                        Color(0xFFD4AF37),
-                                                    shape:
-                                                        RoundedRectangleBorder(
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        8)),
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(
+                                                    ElementalEnergy
+                                                        .getElementIcon(
+                                                            _currentTask
+                                                                .element),
+                                                    color: ElementalEnergy
+                                                        .getElementColor(
+                                                            _currentTask
+                                                                .element),
+                                                    size: 40,
                                                   ),
-                                                  onPressed: _taskCompleted
-                                                      ? null
-                                                      : _completeDailyTask,
-                                                  child: Text(
-                                                      _taskCompleted
-                                                          ? 'Wykonano'
-                                                          : 'Wykonaj',
-                                                      style: TextStyle(
-                                                          color: Colors.black)),
-                                                ),
+                                                  SizedBox(height: 4),
+                                                  Text(
+                                                    _currentTask.element,
+                                                    style: TextStyle(
+                                                      color: ElementalEnergy
+                                                          .getElementColor(
+                                                              _currentTask
+                                                                  .element),
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-
-                                    SizedBox(width: 16),
-
-                                    // Większy symbol żywiołu po prawej stronie
-                                    Container(
-                                      padding: EdgeInsets.all(16),
-                                      decoration: BoxDecoration(
-                                        color: ElementalEnergy.getElementColor(
-                                                _currentTask.element)
-                                            .withOpacity(0.2),
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color:
-                                              ElementalEnergy.getElementColor(
-                                                  _currentTask.element),
-                                          width: 2,
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            ElementalEnergy.getElementIcon(
-                                                _currentTask.element),
-                                            color:
-                                                ElementalEnergy.getElementColor(
-                                                    _currentTask.element),
-                                            size: 40,
-                                          ),
-                                          SizedBox(height: 4),
-                                          Text(
-                                            _currentTask.element,
-                                            style: TextStyle(
-                                              color: ElementalEnergy
-                                                  .getElementColor(
-                                                      _currentTask.element),
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
                                     ),
-                                  ],
+                                  ),
                                 ),
-                              ),
+                              );
+                            },
+                          ),
+
+                          SizedBox(height: 12),
+
+                          // Przycisk "Wyświetl wszystkie zadania"
+// Przycisk przekierowujący na ekran zadań
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Color(0xFFD4AF37),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 24, vertical: 12),
+                            ),
+                            onPressed: () {
+                              // Przekierowanie na ekran zadań przez główną nawigację
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => TasksScreen()),
+                              );
+                            },
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.list_alt, color: Colors.black),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Wyświetl wszystkie zadania',
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -1276,15 +1405,17 @@ class _DashboardScreenState extends State<DashboardScreen>
 
                     SizedBox(height: 16),
 
-                    // Dzisiejsze Statystyki (zmienione z "Szybkie Statystyki")
+                    // Dzisiejsze Statystyki
                     Padding(
                       padding: const EdgeInsets.all(16.0),
-                      child: Text(
-                        'Dzisiejsze Statystyki',
-                        style: TextStyle(
-                            color: Colors.amber,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold),
+                      child: Center(
+                        child: Text(
+                          'Dzisiejsze Statystyki',
+                          style: TextStyle(
+                              color: Colors.amber,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ),
                     Padding(
@@ -1309,7 +1440,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
                     SizedBox(height: 16),
 
-                    // Wskazówki Astrologiczne z przyciskiem "Dowiedz się więcej" pod informacją
+                    // Wskazówki Astrologiczne z przyciskiem pod informacją
                     Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Card(
@@ -1335,7 +1466,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                                     color: Colors.white, fontSize: 16),
                               ),
                               SizedBox(height: 12),
-                              // Przycisk pod informacją
                               Center(
                                 child: ElevatedButton(
                                   style: ElevatedButton.styleFrom(
@@ -1468,7 +1598,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 }
 
-// Nowy ekran dla listy wykonanych zadań
+// Ekran dla listy wykonanych zadań
 class CompletedTasksScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -1564,6 +1694,66 @@ class CompletedTasksScreen extends StatelessWidget {
                 );
               },
             ),
+    );
+  }
+}
+
+// Ekran dla tranzyty dnia (astrologia)
+class DailyTransitsScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Tranzyty Dnia',
+            style: TextStyle(fontFamily: 'Cinzel', color: Colors.amber)),
+        backgroundColor: Color(0xFF1E293B),
+        iconTheme: IconThemeData(color: Colors.amber),
+      ),
+      backgroundColor: Color(0xFF1E293B),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Dzisiejsze Tranzyty Planetarne',
+                style: TextStyle(
+                    color: Colors.amber,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold)),
+            SizedBox(height: 16),
+            _buildTransitInfo('Koniunkcja Księżyca i Jowisza',
+                'Sprzyja rozwojowi duchowemu, optymizmowi i hojności. Dobry czas na naukę i podróże mentalne.'),
+            SizedBox(height: 12),
+            _buildTransitInfo('Słońce w kwadraturze do Saturna',
+                'Może przynieść poczucie ograniczenia i frustracji. Ważna jest cierpliwość i systematyczna praca nad celami.'),
+            SizedBox(height: 12),
+            _buildTransitInfo('Pełnia Księżyca (za 3 dni)',
+                'Energia osiąga swój szczyt. Czas na podsumowania, uwalnianie tego, co już nie służy i manifestację intencji.'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTransitInfo(String title, String description) {
+    return Card(
+      color: Color(0xFF2C3E50),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title,
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold)),
+            SizedBox(height: 8),
+            Text(description,
+                style: TextStyle(color: Colors.white70, fontSize: 14)),
+          ],
+        ),
+      ),
     );
   }
 }
