@@ -4,8 +4,17 @@ import 'screens/dashboard_screen.dart';
 import 'screens/tasks_screen.dart';
 import 'screens/mood_scanner_screen.dart';
 import 'screens/cosmogram_analysis_screen.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Inicjalizacja Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   runApp(MyApp());
 }
 
