@@ -257,7 +257,7 @@ class _TasksScreenState extends State<TasksScreen>
     );
   }
 
-  void _completeTask(SpiritualTask task, int index) {
+  Future<void> _completeTask(SpiritualTask task, int index) async {
     if (AuraManager.aura < AuraManager.auraDropPerTask) {
       MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(
@@ -275,6 +275,12 @@ class _TasksScreenState extends State<TasksScreen>
       ElementalEnergy.addEnergy(task.element, task.elementalEnergy);
       userState.completeTask(task.xpReward, 0);
       CompletedTasksManager.addCompletedTask(task);
+    });
+
+    await userState.completeTask(task.xpReward, 0);
+
+    _completionAnimationController.forward().then((_) {
+      _completionAnimationController.reverse();
     });
 
     _completionAnimationController.forward().then((_) {

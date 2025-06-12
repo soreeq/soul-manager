@@ -216,7 +216,7 @@ class TaskManager {
 
     // Intuicja (Energia Powietrza)
     SpiritualTask(
-      title: 'Ćwiczenie Oddechowe',
+      title: 'Ćwiczenie Oddechowe Wima Hofa',
       description: 'Wykonaj 5-minutowe głębokie oddychanie',
       xpReward: 25,
       element: 'Powietrze',
@@ -741,7 +741,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  void _completeDailyTask() {
+  void _completeDailyTask() async {
     if (_taskCompleted) return;
 
     // Sprawdź czy mamy wystarczająco aury
@@ -773,8 +773,8 @@ class _DashboardScreenState extends State<DashboardScreen>
       curve: Curves.easeOut,
     ));
 
-    _cardAnimationController.forward().then((_) {
-      setState(() {
+    _cardAnimationController.forward().then((_) async {
+      setState(() async {
         _taskCompleted = true;
         _previousAuraValue = AuraManager.aura / 100.0;
         _previousXpBarValue = userState.expBar;
@@ -795,7 +795,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         ElementalEnergy.addEnergy(
             _currentTask.element, _currentTask.elementalEnergy);
 
-        bool levelUp = userState.completeTask(_currentTask.xpReward, 0);
+        bool levelUp = await userState.completeTask(_currentTask.xpReward, 0);
 
         // Animacja paska Aury
         _auraBarAnimation = Tween<double>(

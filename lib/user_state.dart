@@ -6,6 +6,20 @@ class UserState extends ChangeNotifier {
   final UserService _userService = UserService();
   UserProfile? _currentUser;
 
+  // Statyczna lista progów poziomów - dodaj to
+  static const List<int> levelThresholds = [
+    0,
+    100,
+    170,
+    288,
+    491,
+    835,
+    1419,
+    2413,
+    4103,
+    6975
+  ];
+
   // Gettery
   UserProfile? get currentUser => _currentUser;
   int get xp => _currentUser?.xp ?? 0;
