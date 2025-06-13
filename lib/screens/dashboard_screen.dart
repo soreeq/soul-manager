@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:soul_manager/screens/tasks_screen.dart';
 import 'dart:async';
@@ -251,6 +253,8 @@ class AuraManager {
   static double aura = 100.0;
   static DateTime lastUpdate = DateTime.now();
   static Timer? _timer;
+  static String? _currentUserId;
+  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   static const double maxAura = 100.0;
   static const double auraDropPerTask = 100.0 / 15.0;
@@ -258,22 +262,62 @@ class AuraManager {
 
   static void initTimer() {
     _timer?.cancel();
+    _currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    _loadAuraFromFirebase();
     _timer = Timer.periodic(Duration(minutes: 1), (_) => updateAura());
   }
 
-  static void updateAura() {
-    if (aura < maxAura) {
-      final now = DateTime.now();
-      final elapsed = now.difference(lastUpdate).inSeconds / 3600.0;
-      aura = (aura + elapsed * regenPerHour).clamp(0.0, maxAura);
-      lastUpdate = now;
+  static Future<void> _loadAuraFromFirebase() async {
+    if (_currentUserId == null) return;
+
+    try {
+      DocumentSnapshot doc =
+          await _firestore.collection('users').doc(_currentUserId!).get();
+
+      if (doc.exists) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        aura = data['aura']?.toDouble() ?? 100.0;
+        lastUpdate = data['lastActive'] != null
+            ? (data['lastActive'] as Timestamp).toDate()
+            : DateTime.now();
+      }
+    } catch (e) {
+      print('Błąd ładowania aury: $e');
     }
   }
 
-  static void consumeAura() {
+  static Future<void> updateAura() async {
+    if (aura < maxAura) {
+      final now = DateTime.now();
+      final elapsed = now.difference(lastUpdate).inSeconds / 3600.0;
+      final newAura = (aura + elapsed * regenPerHour).clamp(0.0, maxAura);
+
+      if (newAura != aura) {
+        aura = newAura;
+        lastUpdate = now;
+        await _saveAuraToFirebase();
+      }
+    }
+  }
+
+  static Future<void> consumeAura() async {
     if (aura >= auraDropPerTask) {
       aura -= auraDropPerTask;
       lastUpdate = DateTime.now();
+      await _saveAuraToFirebase();
+    }
+  }
+
+  static Future<void> _saveAuraToFirebase() async {
+    if (_currentUserId == null) return;
+
+    try {
+      await _firestore.collection('users').doc(_currentUserId!).update({
+        'aura': aura,
+        'lastActive': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print('Błąd zapisywania aury: $e');
     }
   }
 
@@ -793,8 +837,8 @@ class _DashboardScreenState extends State<DashboardScreen>
       });
 
       // Wykonaj operację Firebase w tle - bez blokowania UI
-      bool levelUp = await userState.completeTask(_currentTask.xpReward, 0);
-
+      bool levelUp = await userState.completeTask(_currentTask.xpReward, 0,
+          _currentTask.element, _currentTask.elementalEnergy);
       // Sprawdź czy widget jest nadal zamontowany przed setState
       if (!mounted) return;
 
@@ -883,10 +927,9 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
-  void _addReflection() {
+  void _addReflection() async {
     if (_reflectionController.text.isNotEmpty) {
-      ReflectionJournal.addEntry(_reflectionController.text, 'reflection');
-      userState.completeTask(10, 0);
+      await userState.addReflection(_reflectionController.text, 'reflection');
       _reflectionController.clear();
 
       MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
@@ -900,10 +943,9 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
-  void _addGratitude() {
+  void _addGratitude() async {
     if (_gratitudeController.text.isNotEmpty) {
-      ReflectionJournal.addEntry(_gratitudeController.text, 'gratitude');
-      userState.completeTask(10, 0);
+      await userState.addReflection(_gratitudeController.text, 'gratitude');
       _gratitudeController.clear();
 
       MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
