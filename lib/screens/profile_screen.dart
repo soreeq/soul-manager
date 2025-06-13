@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import '../main.dart'; // Dostęp do globalnego klucza ScaffoldMessenger
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:soul_manager/screens/start_screen.dart';
+import 'package:soul_manager/main.dart' as app;
 import 'dashboard_screen.dart'; // Dostęp do ReflectionJournal
 
 class ProfileScreen extends StatefulWidget {
@@ -40,6 +41,99 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
+  // Funkcja wylogowania
+  Future<void> _logout() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => StartScreen()),
+        (route) => false, // Usuń wszystkie poprzednie ekrany ze stosu
+      );
+
+      app.MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(
+          content: Text('Zostałeś wylogowany'),
+          backgroundColor: Color(0xFFD4AF37),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      app.MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(
+          content: Text('Błąd podczas wylogowywania: $e'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  // Funkcja określania znaku zodiaku
+  String getZodiacSign(String birthDate) {
+    try {
+      DateTime date = DateTime.parse(birthDate);
+      int month = date.month;
+      int day = date.day;
+
+      if ((month == 3 && day >= 21) || (month == 4 && day <= 19))
+        return 'Baran';
+      if ((month == 4 && day >= 20) || (month == 5 && day <= 20)) return 'Byk';
+      if ((month == 5 && day >= 21) || (month == 6 && day <= 20))
+        return 'Bliźnięta';
+      if ((month == 6 && day >= 21) || (month == 7 && day <= 22)) return 'Rak';
+      if ((month == 7 && day >= 23) || (month == 8 && day <= 22)) return 'Lew';
+      if ((month == 8 && day >= 23) || (month == 9 && day <= 22))
+        return 'Panna';
+      if ((month == 9 && day >= 23) || (month == 10 && day <= 22))
+        return 'Waga';
+      if ((month == 10 && day >= 23) || (month == 11 && day <= 21))
+        return 'Skorpion';
+      if ((month == 11 && day >= 22) || (month == 12 && day <= 21))
+        return 'Strzelec';
+      if ((month == 12 && day >= 22) || (month == 1 && day <= 19))
+        return 'Koziorożec';
+      if ((month == 1 && day >= 20) || (month == 2 && day <= 18))
+        return 'Wodnik';
+      if ((month == 2 && day >= 19) || (month == 3 && day <= 20)) return 'Ryby';
+    } catch (e) {
+      return 'Nieznany';
+    }
+    return 'Nieznany';
+  }
+
+  // Funkcja zwracająca emoji znaku zodiaku
+  String getZodiacEmoji(String sign) {
+    switch (sign) {
+      case 'Baran':
+        return '♈';
+      case 'Byk':
+        return '♉';
+      case 'Bliźnięta':
+        return '♊';
+      case 'Rak':
+        return '♋';
+      case 'Lew':
+        return '♌';
+      case 'Panna':
+        return '♍';
+      case 'Waga':
+        return '♎';
+      case 'Skorpion':
+        return '♏';
+      case 'Strzelec':
+        return '♐';
+      case 'Koziorożec':
+        return '♑';
+      case 'Wodnik':
+        return '♒';
+      case 'Ryby':
+        return '♓';
+      default:
+        return '🌟';
+    }
+  }
+
   void _toggleEditing() {
     setState(() {
       _isEditing = !_isEditing;
@@ -50,7 +144,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() {
       _isEditing = false;
     });
-    MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+    app.MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(
         content: Text('Zmiany zapisane!'),
         backgroundColor: Color(0xFFD4AF37),
@@ -63,7 +157,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() {
       ReflectionJournal.entries.removeAt(index);
     });
-    MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+    app.MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(
         content: Text('Wpis usunięty'),
         backgroundColor: Colors.red,
@@ -74,6 +168,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    String zodiacSign = getZodiacSign(widget.birthDate);
+    String zodiacEmoji = getZodiacEmoji(zodiacSign);
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -89,6 +186,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Icon(_isEditing ? Icons.save : Icons.edit, color: Colors.amber),
             onPressed: _isEditing ? _saveChanges : _toggleEditing,
           ),
+          // Przycisk wylogowania
+          IconButton(
+            icon: Icon(Icons.logout, color: Colors.red),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (BuildContext context) {
+                  return AlertDialog(
+                    backgroundColor: Color(0xFF2C3E50),
+                    title: Text('Wylogowanie',
+                        style: TextStyle(color: Colors.amber)),
+                    content: Text('Czy na pewno chcesz się wylogować?',
+                        style: TextStyle(color: Colors.white)),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: Text('Anuluj',
+                            style: TextStyle(color: Colors.white70)),
+                      ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          _logout();
+                        },
+                        child: Text('Wyloguj',
+                            style: TextStyle(color: Colors.white)),
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+            tooltip: 'Wyloguj się',
+          ),
         ],
       ),
       backgroundColor: Color(0xFF1E293B),
@@ -98,7 +231,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Dane Kosmogramu
+              // Dane Kosmogramu z znakiem zodiaku
               Text(
                 'Dane Kosmogramu',
                 style: TextStyle(
@@ -107,6 +240,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 20),
+
+              // Sekcja ze znakiem zodiaku
+              Container(
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Color(0xFF2C3E50),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: Colors.amber.withOpacity(0.3), width: 1),
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      zodiacEmoji,
+                      style: TextStyle(fontSize: 40),
+                    ),
+                    SizedBox(width: 16),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Znak Zodiaku',
+                          style: TextStyle(
+                              color: Colors.amber,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          zodiacSign,
+                          style: TextStyle(color: Colors.white, fontSize: 18),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 20),
+
               _buildProfileField(
                 label: 'Nickname',
                 controller: _nicknameController,
@@ -225,8 +396,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ),
                                   SizedBox(height: 8),
                                   Text(
-                                    DateFormat('dd.MM.yyyy, HH:mm')
-                                        .format(entry.date),
+                                    '${entry.date.day.toString().padLeft(2, '0')}.${entry.date.month.toString().padLeft(2, '0')}.${entry.date.year}, ${entry.date.hour.toString().padLeft(2, '0')}:${entry.date.minute.toString().padLeft(2, '0')}',
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: Colors.grey.shade600,
@@ -283,7 +453,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       SizedBox(height: 16),
 
-                      // Podstawowe informacje astrologiczne (placeholder)
+                      // Podstawowe informacje astrologiczne
                       if (widget.birthDate.isNotEmpty) ...[
                         Container(
                           padding: EdgeInsets.all(12),
@@ -314,12 +484,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       color: Colors.white, fontSize: 13),
                                 ),
                               SizedBox(height: 8),
-                              Text(
-                                'Znak zodiaku: Będzie obliczony na podstawie daty urodzenia',
-                                style: TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 12,
-                                    fontStyle: FontStyle.italic),
+                              Row(
+                                children: [
+                                  Text(
+                                    'Znak zodiaku: ',
+                                    style: TextStyle(
+                                        color: Colors.white70, fontSize: 12),
+                                  ),
+                                  Text(
+                                    zodiacEmoji,
+                                    style: TextStyle(fontSize: 16),
+                                  ),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    zodiacSign,
+                                    style: TextStyle(
+                                        color: Colors.amber,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                ],
                               ),
                             ],
                           ),

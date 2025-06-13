@@ -742,6 +742,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   void _completeDailyTask() async {
+    // Dodaj async
     if (_taskCompleted) return;
 
     // Sprawdź czy mamy wystarczająco aury
@@ -756,25 +757,20 @@ class _DashboardScreenState extends State<DashboardScreen>
       return;
     }
 
-    // Animacja zatwierdzenia - karta unosi się w górę ze świeceniem
-    _cardSlideAnimation = Tween<Offset>(
-      begin: Offset.zero,
-      end: Offset(0, -2.0),
-    ).animate(CurvedAnimation(
-      parent: _cardAnimationController,
-      curve: Curves.easeOut,
-    ));
+    try {
+      // Animacja karty w prawo (wykonanie)
+      _cardSlideAnimation = Tween<Offset>(
+        begin: Offset.zero,
+        end: Offset(1.5, 0),
+      ).animate(CurvedAnimation(
+        parent: _cardAnimationController,
+        curve: Curves.easeInOut,
+      ));
 
-    _cardScaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.2,
-    ).animate(CurvedAnimation(
-      parent: _cardAnimationController,
-      curve: Curves.easeOut,
-    ));
+      // Uruchom animację bez await - nie blokuj UI
+      _cardAnimationController.forward();
 
-    _cardAnimationController.forward().then((_) async {
-      setState(() async {
+      setState(() {
         _taskCompleted = true;
         _previousAuraValue = AuraManager.aura / 100.0;
         _previousXpBarValue = userState.expBar;
@@ -794,9 +790,15 @@ class _DashboardScreenState extends State<DashboardScreen>
         // Dodaj energię żywiołu z aktualnego zadania
         ElementalEnergy.addEnergy(
             _currentTask.element, _currentTask.elementalEnergy);
+      });
 
-        bool levelUp = await userState.completeTask(_currentTask.xpReward, 0);
+      // Wykonaj operację Firebase w tle - bez blokowania UI
+      bool levelUp = await userState.completeTask(_currentTask.xpReward, 0);
 
+      // Sprawdź czy widget jest nadal zamontowany przed setState
+      if (!mounted) return;
+
+      setState(() {
         // Animacja paska Aury
         _auraBarAnimation = Tween<double>(
           begin: _previousAuraValue,
@@ -828,42 +830,57 @@ class _DashboardScreenState extends State<DashboardScreen>
               curve: Curves.easeOut),
         );
         _elementalBarControllers[element]!.forward(from: 0.0);
-
-        if (levelUp) {
-          _showLevelUpEffect(userState.title);
-        }
-
-        // Po kilku sekundach pokazanie nowego zadania
-        Future.delayed(Duration(seconds: 3), () {
-          if (mounted) {
-            setState(() {
-              _taskCompleted = false;
-              _currentTaskIndex =
-                  (_currentTaskIndex + 1) % TaskManager.allTasks.length;
-            });
-            _cardAnimationController.reset();
-            MyApp.scaffoldMessengerKey.currentState?.removeCurrentSnackBar();
-            MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
-              SnackBar(
-                content: Text('Nowe zadanie dnia dostępne!'),
-                backgroundColor: Color(0xFFD4AF37),
-                duration: Duration(seconds: 2),
-              ),
-            );
-          }
-        });
       });
-    });
 
-    MyApp.scaffoldMessengerKey.currentState?.removeCurrentSnackBar();
-    MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
-      SnackBar(
-        content: Text(
-            'Zadanie wykonane! Otrzymano +${_currentTask.xpReward} XP i +${_currentTask.elementalEnergy.round()} ${_currentTask.element}'),
-        backgroundColor: Color(0xFFD4AF37),
-        duration: Duration(seconds: 3),
-      ),
-    );
+      if (levelUp) {
+        _showLevelUpEffect(userState.title);
+      }
+
+      // Po kilku sekundach pokazanie nowego zadania
+      Future.delayed(Duration(seconds: 3), () {
+        if (mounted) {
+          // Sprawdź czy widget jest nadal zamontowany
+          setState(() {
+            _taskCompleted = false;
+            _currentTaskIndex =
+                (_currentTaskIndex + 1) % TaskManager.allTasks.length;
+          });
+          _cardAnimationController.reset();
+          MyApp.scaffoldMessengerKey.currentState?.removeCurrentSnackBar();
+          MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+            SnackBar(
+              content: Text('Nowe zadanie dnia dostępne!'),
+              backgroundColor: Color(0xFFD4AF37),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      });
+
+      MyApp.scaffoldMessengerKey.currentState?.removeCurrentSnackBar();
+      MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(
+          content: Text(
+              'Zadanie wykonane! Otrzymano +${_currentTask.xpReward} XP i +${_currentTask.elementalEnergy.round()} ${_currentTask.element}'),
+          backgroundColor: Color(0xFFD4AF37),
+          duration: Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      // Obsługa błędów - zapobiega zawieszeniu aplikacji
+      print('Błąd podczas wykonywania zadania: $e');
+      setState(() {
+        _taskCompleted = false; // Przywróć możliwość ponownego wykonania
+      });
+      MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(
+          content: Text(
+              'Wystąpił błąd podczas wykonywania zadania. Spróbuj ponownie.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
   void _addReflection() {
