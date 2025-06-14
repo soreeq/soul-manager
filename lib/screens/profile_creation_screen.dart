@@ -5,7 +5,6 @@ import 'package:soul_manager/screens/main_screen.dart' as screens;
 import 'package:soul_manager/screens/start_screen.dart';
 import 'package:soul_manager/main.dart' as app;
 import 'package:soul_manager/user_state.dart';
-import 'package:soul_manager/firebase_options.dart';
 
 class ProfileCreationScreen extends StatefulWidget {
   @override
@@ -20,7 +19,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
   final _birthDateController = TextEditingController();
   final _birthPlaceController = TextEditingController();
 
-  bool _isLogin = true; // Przełącznik między logowaniem a rejestracją
+  bool _isLogin = true;
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -59,7 +58,6 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
           password: _passwordController.text.trim(),
         );
 
-        // Pobierz dane użytkownika z Firestore
         DocumentSnapshot userDoc = await FirebaseFirestore.instance
             .collection('users')
             .doc(userCredential.user!.uid)
@@ -69,7 +67,6 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
           Map<String, dynamic> userData =
               userDoc.data() as Map<String, dynamic>;
 
-          // Przekieruj do MainScreen z danymi z Firebase
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -101,61 +98,81 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
           password: _passwordController.text.trim(),
         );
 
-        // Sprawdź czy użytkownik został utworzony
         if (userCredential.user == null) {
           throw Exception('Nie udało się utworzyć konta użytkownika');
         }
 
-        // Zapisz dane użytkownika do Firestore z lepszą obsługą błędów
-        try {
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(userCredential.user!.uid)
-              .set({
-            'nickname': _nicknameController.text.trim(),
-            'birthDate': _birthDateController.text.trim(),
-            'birthPlace': _birthPlaceController.text.trim(),
-            'email': _emailController.text.trim(),
-            'level': 1,
-            'xp': 0,
-            'aura': 100.0,
-            'elementalEnergies': {
-              'Ziemia': 0.0,
-              'Ogień': 0.0,
-              'Woda': 0.0,
-              'Powietrze': 0.0,
-            },
-            'createdAt': FieldValue.serverTimestamp(),
-            'lastActive': FieldValue.serverTimestamp(),
-          });
+        // 1. Najpierw utwórz profil użytkownika
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userCredential.user!.uid)
+            .set({
+          'nickname': _nicknameController.text.trim(),
+          'birthDate': _birthDateController.text.trim(),
+          'birthPlace': _birthPlaceController.text.trim(),
+          'email': _emailController.text.trim(),
+          'level': 1,
+          'xp': 0,
+          'aura': 100.0,
+          'elementalEnergies': {
+            'Ziemia': 0.0,
+            'Ogień': 0.0,
+            'Woda': 0.0,
+            'Powietrze': 0.0,
+          },
+          'createdAt': FieldValue.serverTimestamp(),
+          'lastActive': FieldValue.serverTimestamp(),
+        });
 
-          // Przekieruj do MainScreen z danymi
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => screens.MainScreen(
-                nickname: _nicknameController.text.trim(),
-                birthDate: _birthDateController.text.trim(),
-                birthPlace: _birthPlaceController.text.trim(),
-              ),
-            ),
-          );
+// TYLKO DO TESTÓW - usuwa wszystkie zadania
+        Future<void> _resetAllTasks() async {
+          try {
+            QuerySnapshot snapshot = await FirebaseFirestore.instance
+                .collection('globalTasks')
+                .get();
 
-          app.MyApp.scaffoldMessengerKey.currentState?.removeCurrentSnackBar();
-          app.MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
-            SnackBar(
-              content:
-                  Text('Profil utworzony! Witaj, ${_nicknameController.text}!'),
-              backgroundColor: Color(0xFFD4AF37),
-              duration: Duration(seconds: 3),
-            ),
-          );
-        } catch (firestoreError) {
-          // Jeśli zapis do Firestore się nie powiódł, usuń utworzone konto
-          await userCredential.user!.delete();
-          throw Exception(
-              'Nie udało się zapisać danych profilu: $firestoreError');
+            WriteBatch batch = FirebaseFirestore.instance.batch();
+            for (var doc in snapshot.docs) {
+              batch.delete(doc.reference);
+            }
+            await batch.commit();
+
+            // Usuń flagę inicjalizacji
+            await FirebaseFirestore.instance
+                .collection('system')
+                .doc('initialization')
+                .delete();
+
+            print('Wszystkie zadania zostały usunięte!');
+          } catch (e) {
+            print('Błąd resetowania: $e');
+          }
         }
+
+        await _resetAllTasks();
+        // 2. Automatycznie dodaj wszystkie zadania
+        await _addAllTasksToFirestore();
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => screens.MainScreen(
+              nickname: _nicknameController.text.trim(),
+              birthDate: _birthDateController.text.trim(),
+              birthPlace: _birthPlaceController.text.trim(),
+            ),
+          ),
+        );
+
+        app.MyApp.scaffoldMessengerKey.currentState?.removeCurrentSnackBar();
+        app.MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(
+            content:
+                Text('Profil utworzony! Witaj, ${_nicknameController.text}!'),
+            backgroundColor: Color(0xFFD4AF37),
+            duration: Duration(seconds: 3),
+          ),
+        );
       }
     } on FirebaseAuthException catch (e) {
       String errorMessage;
@@ -193,9 +210,8 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
       });
     } catch (e) {
       setState(() {
-        _errorMessage = 'Wystąpił błąd: ${e.toString()}';
+        _errorMessage = 'Wystąpił nieoczekiwany błąd: $e';
       });
-      print('Szczegółowy błąd: $e'); // Do debugowania
     } finally {
       setState(() {
         _isLoading = false;
@@ -203,10 +219,444 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
     }
   }
 
+  Future<void> _addAllTasksToFirestore() async {
+    try {
+      // SPRAWDŹ CZY ZADANIA JUŻ ISTNIEJĄ W BAZIE
+      QuerySnapshot existingTasks = await FirebaseFirestore.instance
+          .collection('globalTasks')
+          .limit(1)
+          .get();
+
+      if (existingTasks.docs.isNotEmpty) {
+        print('Zadania już istnieją w bazie - pomijam dodawanie');
+        return; // Wyjdź z funkcji jeśli zadania już są
+      }
+
+      print('Brak zadań w bazie - dodaję wszystkie zadania...');
+
+      final allTasks = [
+        // ZADANIA ZIEMI
+        {
+          "title": "Spacer w Naturze",
+          "description": "Idź na 15-minutowy spacer do parku lub lasu",
+          "xpReward": 30,
+          "element": "Ziemia",
+          "elementalEnergy": 20.0,
+          "category": "Uziemienie"
+        },
+        {
+          "title": "Ćwiczenie Boso",
+          "description": "Stań boso na trawie przez 5 minut",
+          "xpReward": 20,
+          "element": "Ziemia",
+          "elementalEnergy": 15.0,
+          "category": "Uziemienie"
+        },
+        {
+          "title": "Dbanie o Rośliny",
+          "description": "Podlej rośliny w domu lub ogrodzie",
+          "xpReward": 15,
+          "element": "Ziemia",
+          "elementalEnergy": 10.0,
+          "category": "Uziemienie"
+        },
+        {
+          "title": "Ogrodnictwo",
+          "description": "Posadź nową roślinę lub przesadź istniejącą",
+          "xpReward": 25,
+          "element": "Ziemia",
+          "elementalEnergy": 18.0,
+          "category": "Uziemienie"
+        },
+        {
+          "title": "Zbieranie Kamieni",
+          "description":
+              "Zbierz 7 kamieni podczas spaceru i stwórz z nich mandałę",
+          "xpReward": 20,
+          "element": "Ziemia",
+          "elementalEnergy": 12.0,
+          "category": "Uziemienie"
+        },
+        {
+          "title": "Jedzenie Świadome",
+          "description": "Zjedz posiłek w ciszy, skupiając się na smakach",
+          "xpReward": 18,
+          "element": "Ziemia",
+          "elementalEnergy": 14.0,
+          "category": "Uziemienie"
+        },
+        {
+          "title": "Medytacja z Kryształami",
+          "description": "Medytuj trzymając kryształ przez 10 minut",
+          "xpReward": 32,
+          "element": "Ziemia",
+          "elementalEnergy": 19.0,
+          "category": "Uziemienie"
+        },
+        {
+          "title": "Chodzenie po Górach",
+          "description": "Idź na górską wędrówkę lub wzgórze",
+          "xpReward": 40,
+          "element": "Ziemia",
+          "elementalEnergy": 25.0,
+          "category": "Uziemienie"
+        },
+        {
+          "title": "Przytulanie Drzewa",
+          "description": "Przytul drzewo przez 5 minut, czując jego energię",
+          "xpReward": 24,
+          "element": "Ziemia",
+          "elementalEnergy": 16.0,
+          "category": "Uziemienie"
+        },
+        {
+          "title": "Tworzenie z Gliny",
+          "description": "Ulepić coś z gliny lub plasteliny",
+          "xpReward": 26,
+          "element": "Ziemia",
+          "elementalEnergy": 17.0,
+          "category": "Uziemienie"
+        },
+        {
+          "title": "Sprzątanie Świadome",
+          "description": "Posprzątaj pokój z pełną uwagą",
+          "xpReward": 20,
+          "element": "Ziemia",
+          "elementalEnergy": 12.0,
+          "category": "Uziemienie"
+        },
+        {
+          "title": "Gotowanie Intuicyjne",
+          "description": "Ugotuj posiłek bez przepisu, słuchając intuicji",
+          "xpReward": 28,
+          "element": "Ziemia",
+          "elementalEnergy": 18.0,
+          "category": "Uziemienie"
+        },
+
+        // ZADANIA OGNIA
+        {
+          "title": "Dziennik Kreatywny",
+          "description": "Zapisz 3 pomysły lub myśli bez oceniania",
+          "xpReward": 25,
+          "element": "Ogień",
+          "elementalEnergy": 15.0,
+          "category": "Inspiracja"
+        },
+        {
+          "title": "Rysunek Intuicyjny",
+          "description": "Narysuj coś odzwierciedlającego Twój nastrój",
+          "xpReward": 20,
+          "element": "Ogień",
+          "elementalEnergy": 10.0,
+          "category": "Inspiracja"
+        },
+        {
+          "title": "Taniec Wyrażenia",
+          "description": "Tańcz przez 5 minut, wyrażając emocje",
+          "xpReward": 30,
+          "element": "Ogień",
+          "elementalEnergy": 12.0,
+          "category": "Inspiracja"
+        },
+        {
+          "title": "Śpiewanie Mantry",
+          "description": "Śpiewaj wybraną mantrę przez 10 minut",
+          "xpReward": 28,
+          "element": "Ogień",
+          "elementalEnergy": 16.0,
+          "category": "Inspiracja"
+        },
+        {
+          "title": "Wizualizacja Celów",
+          "description": "Wizualizuj swoje cele przez 15 minut",
+          "xpReward": 35,
+          "element": "Ogień",
+          "elementalEnergy": 20.0,
+          "category": "Inspiracja"
+        },
+        {
+          "title": "Pisanie Afirmacji",
+          "description": "Napisz 5 pozytywnych afirmacji o sobie",
+          "xpReward": 22,
+          "element": "Ogień",
+          "elementalEnergy": 13.0,
+          "category": "Inspiracja"
+        },
+        {
+          "title": "Palenie Kadzidła",
+          "description": "Zapal kadzidło i medytuj nad płomieniem",
+          "xpReward": 26,
+          "element": "Ogień",
+          "elementalEnergy": 14.0,
+          "category": "Inspiracja"
+        },
+        {
+          "title": "Pisanie Listu do Siebie",
+          "description": "Napisz list do siebie z przyszłości",
+          "xpReward": 24,
+          "element": "Ogień",
+          "elementalEnergy": 15.0,
+          "category": "Inspiracja"
+        },
+        {
+          "title": "Ćwiczenia Energetyczne",
+          "description": "Wykonaj 15 minut ćwiczeń fizycznych",
+          "xpReward": 30,
+          "element": "Ogień",
+          "elementalEnergy": 18.0,
+          "category": "Inspiracja"
+        },
+        {
+          "title": "Tworzenie Kolażu",
+          "description": "Stwórz kolaż swoich marzeń",
+          "xpReward": 28,
+          "element": "Ogień",
+          "elementalEnergy": 16.0,
+          "category": "Inspiracja"
+        },
+        {
+          "title": "Improwizacja Muzyczna",
+          "description": "Graj na instrumencie lub śpiewaj improwizując",
+          "xpReward": 32,
+          "element": "Ogień",
+          "elementalEnergy": 19.0,
+          "category": "Inspiracja"
+        },
+        {
+          "title": "Ćwiczenie Woli",
+          "description": "Zrób coś trudnego, co odkładałeś",
+          "xpReward": 35,
+          "element": "Ogień",
+          "elementalEnergy": 22.0,
+          "category": "Inspiracja"
+        },
+
+        // ZADANIA WODY
+        {
+          "title": "Medytacja przy Wodzie",
+          "description": "Medytuj przez 10 minut przy wodzie",
+          "xpReward": 35,
+          "element": "Woda",
+          "elementalEnergy": 20.0,
+          "category": "Spokój"
+        },
+        {
+          "title": "Kąpiel Oczyszczająca",
+          "description": "Weź kąpiel z solą, wizualizując oczyszczenie",
+          "xpReward": 25,
+          "element": "Woda",
+          "elementalEnergy": 15.0,
+          "category": "Spokój"
+        },
+        {
+          "title": "Wdzięczność za Emocje",
+          "description":
+              "Zapisz 3 rzeczy związane z emocjami, za które jesteś wdzięczny",
+          "xpReward": 20,
+          "element": "Woda",
+          "elementalEnergy": 10.0,
+          "category": "Spokój"
+        },
+        {
+          "title": "Płukanie Energetyczne",
+          "description":
+              "Weź prysznic, wizualizując zmywanie negatywnej energii",
+          "xpReward": 18,
+          "element": "Woda",
+          "elementalEnergy": 12.0,
+          "category": "Spokój"
+        },
+        {
+          "title": "Picie Świadomie",
+          "description": "Wypij szklankę wody, skupiając się na każdym łyku",
+          "xpReward": 15,
+          "element": "Woda",
+          "elementalEnergy": 8.0,
+          "category": "Spokój"
+        },
+        {
+          "title": "Łzy Uwolnienia",
+          "description": "Pozwól sobie na płacz, jeśli tego potrzebujesz",
+          "xpReward": 30,
+          "element": "Woda",
+          "elementalEnergy": 18.0,
+          "category": "Spokój"
+        },
+        {
+          "title": "Medytacja pod Prysznicem",
+          "description": "Medytuj podczas brania prysznica",
+          "xpReward": 22,
+          "element": "Woda",
+          "elementalEnergy": 13.0,
+          "category": "Spokój"
+        },
+        {
+          "title": "Pisanie Listów Przebaczenia",
+          "description": "Napisz list przebaczenia (nie musisz go wysyłać)",
+          "xpReward": 35,
+          "element": "Woda",
+          "elementalEnergy": 20.0,
+          "category": "Spokój"
+        },
+        {
+          "title": "Słuchanie Deszczu",
+          "description": "Słuchaj dźwięków deszczu przez 10 minut",
+          "xpReward": 20,
+          "element": "Woda",
+          "elementalEnergy": 12.0,
+          "category": "Spokój"
+        },
+        {
+          "title": "Masaż Stóp w Wodzie",
+          "description": "Namocz stopy w ciepłej wodzie i je wymasuj",
+          "xpReward": 25,
+          "element": "Woda",
+          "elementalEnergy": 15.0,
+          "category": "Spokój"
+        },
+        {
+          "title": "Dziennik Emocji",
+          "description": "Zapisz swoje emocje z ostatnich 24 godzin",
+          "xpReward": 28,
+          "element": "Woda",
+          "elementalEnergy": 16.0,
+          "category": "Spokój"
+        },
+        {
+          "title": "Uwalnianie Żalu",
+          "description": "Napisz żale na papierze i puść je w wodzie",
+          "xpReward": 32,
+          "element": "Woda",
+          "elementalEnergy": 19.0,
+          "category": "Spokój"
+        },
+
+        // ZADANIA POWIETRZA
+        {
+          "title": "Ćwiczenie Oddechowe",
+          "description": "Wykonaj 5-minutowe głębokie oddychanie",
+          "xpReward": 25,
+          "element": "Powietrze",
+          "elementalEnergy": 15.0,
+          "category": "Intuicja"
+        },
+        {
+          "title": "Tarot lub Runy",
+          "description": "Wyciągnij kartę tarota i zapisz przesłanie",
+          "xpReward": 20,
+          "element": "Powietrze",
+          "elementalEnergy": 10.0,
+          "category": "Intuicja"
+        },
+        {
+          "title": "Słuchanie Ciszy",
+          "description": "Spędź 5 minut w całkowitej ciszy",
+          "xpReward": 30,
+          "element": "Powietrze",
+          "elementalEnergy": 12.0,
+          "category": "Intuicja"
+        },
+        {
+          "title": "Medytacja Chodzenia",
+          "description":
+              "Chodź powoli przez 10 minut, skupiając się na oddechu",
+          "xpReward": 28,
+          "element": "Powietrze",
+          "elementalEnergy": 16.0,
+          "category": "Intuicja"
+        },
+        {
+          "title": "Obserwacja Chmur",
+          "description": "Leż i obserwuj chmury przez 15 minut",
+          "xpReward": 22,
+          "element": "Powietrze",
+          "elementalEnergy": 14.0,
+          "category": "Intuicja"
+        },
+        {
+          "title": "Dziennik Snów",
+          "description": "Zapisz swój ostatni sen i jego interpretację",
+          "xpReward": 25,
+          "element": "Powietrze",
+          "elementalEnergy": 13.0,
+          "category": "Intuicja"
+        },
+        {
+          "title": "Medytacja z Dzwoneczkami",
+          "description": "Medytuj słuchając dzwoneczków tybetańskich",
+          "xpReward": 30,
+          "element": "Powietrze",
+          "elementalEnergy": 17.0,
+          "category": "Intuicja"
+        },
+        {
+          "title": "Pisanie Automatyczne",
+          "description": "Pisz przez 10 minut nie kontrolując myśli",
+          "xpReward": 26,
+          "element": "Powietrze",
+          "elementalEnergy": 15.0,
+          "category": "Intuicja"
+        },
+        {
+          "title": "Obserwacja Ptaków",
+          "description": "Obserwuj ptaki przez 15 minut",
+          "xpReward": 22,
+          "element": "Powietrze",
+          "elementalEnergy": 13.0,
+          "category": "Intuicja"
+        },
+        {
+          "title": "Ćwiczenie Telepatii",
+          "description": "Spróbuj wysłać myśl do kogoś bliskiego",
+          "xpReward": 28,
+          "element": "Powietrze",
+          "elementalEnergy": 16.0,
+          "category": "Intuicja"
+        },
+        {
+          "title": "Medytacja na Wietrze",
+          "description": "Medytuj na zewnątrz, czując wiatr na skórze",
+          "xpReward": 32,
+          "element": "Powietrze",
+          "elementalEnergy": 18.0,
+          "category": "Intuicja"
+        },
+        {
+          "title": "Interpretacja Znaków",
+          "description": "Szukaj znaków od Wszechświata przez cały dzień",
+          "xpReward": 35,
+          "element": "Powietrze",
+          "elementalEnergy": 20.0,
+          "category": "Intuicja"
+        },
+      ];
+
+      // Użyj batch do efektywnego dodawania
+      WriteBatch batch = FirebaseFirestore.instance.batch();
+
+      for (var task in allTasks) {
+        DocumentReference docRef =
+            FirebaseFirestore.instance.collection('globalTasks').doc();
+        batch.set(docRef, {
+          ...task,
+          'createdAt': FieldValue.serverTimestamp(),
+          'isActive': true,
+          'isCustom': false,
+          'addedBy': 'system', // Oznacz jako zadania systemowe
+        });
+      }
+
+      await batch.commit();
+      print('${allTasks.length} zadań zostało dodanych do Firestore!');
+    } catch (e) {
+      print('Błąd dodawania zadań: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Dodano tło splash.png jak na innych ekranach
       body: Container(
         decoration: BoxDecoration(
           image: DecorationImage(
@@ -221,7 +671,6 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              // Własny AppBar z przyciskiem powrotu
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
@@ -244,12 +693,10 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                         textAlign: TextAlign.center,
                       ),
                     ),
-                    SizedBox(width: 48), // Wyrównanie tytułu
+                    SizedBox(width: 48),
                   ],
                 ),
               ),
-
-              // Główna zawartość
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
@@ -259,7 +706,6 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Karta z przezroczystym tłem dla lepszej czytelności
                           Container(
                             padding: EdgeInsets.all(20),
                             decoration: BoxDecoration(
@@ -282,8 +728,6 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                                       fontWeight: FontWeight.bold),
                                 ),
                                 SizedBox(height: 20),
-
-                                // Wyświetl błąd jeśli wystąpił
                                 if (_errorMessage != null) ...[
                                   Container(
                                     padding: EdgeInsets.all(12),
@@ -299,20 +743,16 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                                             color: Colors.red, size: 20),
                                         SizedBox(width: 8),
                                         Expanded(
-                                          child: Text(
-                                            _errorMessage!,
-                                            style: TextStyle(
-                                                color: Colors.red,
-                                                fontSize: 14),
-                                          ),
+                                          child: Text(_errorMessage!,
+                                              style: TextStyle(
+                                                  color: Colors.red,
+                                                  fontSize: 14)),
                                         ),
                                       ],
                                     ),
                                   ),
                                   SizedBox(height: 16),
                                 ],
-
-                                // Email (zawsze wymagany)
                                 TextFormField(
                                   controller: _emailController,
                                   decoration: InputDecoration(
@@ -358,8 +798,6 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                                   },
                                 ),
                                 SizedBox(height: 16),
-
-                                // Hasło (zawsze wymagane)
                                 TextFormField(
                                   controller: _passwordController,
                                   decoration: InputDecoration(
@@ -402,8 +840,6 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                                     return null;
                                   },
                                 ),
-
-                                // Dodatkowe pola tylko dla rejestracji
                                 if (!_isLogin) ...[
                                   SizedBox(height: 16),
                                   TextFormField(
@@ -540,10 +976,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                                     },
                                   ),
                                 ],
-
                                 SizedBox(height: 24),
-
-                                // Przycisk główny
                                 Center(
                                   child: ElevatedButton(
                                     style: ElevatedButton.styleFrom(
@@ -593,17 +1026,13 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                                           ),
                                   ),
                                 ),
-
                                 SizedBox(height: 16),
-
-                                // Przycisk przełączania między logowaniem a rejestracją
                                 Center(
                                   child: TextButton(
                                     onPressed: () {
                                       setState(() {
                                         _isLogin = !_isLogin;
                                         _errorMessage = null;
-                                        // Wyczyść kontrolery przy przełączaniu
                                         _emailController.clear();
                                         _passwordController.clear();
                                         _nicknameController.clear();

@@ -5,6 +5,7 @@ import 'dart:math';
 import '../main.dart';
 import '../user_state.dart';
 import 'dashboard_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 // Alias dla zgodności
 typedef SpiritualTask = SpiritualTaskModel;
@@ -18,7 +19,7 @@ class _TasksScreenState extends State<TasksScreen>
     with TickerProviderStateMixin {
   String _selectedTimeFilter = 'Dzienne';
   String? _selectedElementFilter;
-  late UserState userState;
+  late UserState? userState;
   late AnimationController _completionAnimationController;
   late Animation<double> _completionAnimation;
   Set<int> _completedTaskIndices = {};
@@ -39,12 +40,66 @@ class _TasksScreenState extends State<TasksScreen>
       curve: Curves.elasticOut,
     );
 
-    _loadTasks();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future.delayed(Duration(milliseconds: 500));
+      didChangeDependencies();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (userState == null) {
+      userState = Provider.of<UserState>(context, listen: false);
+      _loadTasks();
+    }
   }
 
   Future<void> _loadTasks() async {
     try {
-      _availableTasks = await TaskManager.getAllTasks();
+      setState(() {
+        _isLoading = true;
+      });
+
+      print('Rozpoczynam ładowanie zadań...');
+
+      // Sprawdź połączenie z Firebase
+      await _checkFirebaseData();
+
+      QuerySnapshot snapshot = await FirebaseFirestore.instance
+          .collection('globalTasks')
+          .where('isActive', isEqualTo: true)
+          .get();
+
+      print('Pobrano ${snapshot.docs.length} zadań z Firebase');
+
+      if (snapshot.docs.isEmpty) {
+        print('Brak aktywnych zadań - używam zadań domyślnych');
+        _availableTasks = _getDefaultTasks();
+      } else {
+        _availableTasks = snapshot.docs.map((doc) {
+          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+          return SpiritualTaskModel(
+            id: doc.id,
+            title: data['title'] ?? 'Brak tytułu',
+            description: data['description'] ?? 'Brak opisu',
+            xpReward: data['xpReward'] ?? 10,
+            element: data['element'] ?? 'Ziemia',
+            elementalEnergy: (data['elementalEnergy'] is int)
+                ? (data['elementalEnergy'] as int).toDouble()
+                : (data['elementalEnergy'] as double? ?? 10.0),
+            category: data['category'] ?? 'Ogólne',
+            isCustom: data['isCustom'] ?? false,
+            createdBy: data['createdBy'],
+            createdAt: data['createdAt'] != null
+                ? (data['createdAt'] as Timestamp).toDate()
+                : DateTime.now(),
+          );
+        }).toList();
+      }
+
+      print('Załadowano ${_availableTasks.length} zadań');
+
       setState(() {
         _isLoading = false;
       });
@@ -52,8 +107,59 @@ class _TasksScreenState extends State<TasksScreen>
       print('Błąd ładowania zadań: $e');
       setState(() {
         _isLoading = false;
+        _availableTasks = _getDefaultTasks(); // Fallback na zadania domyślne
       });
     }
+  }
+
+// Zadania domyślne jako fallback
+  List<SpiritualTaskModel> _getDefaultTasks() {
+    return [
+      SpiritualTaskModel(
+        id: 'default_1',
+        title: 'Spacer w Naturze',
+        description: 'Idź na 15-minutowy spacer do parku lub lasu',
+        xpReward: 30,
+        element: 'Ziemia',
+        elementalEnergy: 20.0,
+        category: 'Uziemienie',
+        isCustom: false,
+        createdAt: DateTime.now(),
+      ),
+      SpiritualTaskModel(
+        id: 'default_2',
+        title: 'Medytacja Oddechowa',
+        description: 'Wykonaj 10-minutową medytację oddechową',
+        xpReward: 25,
+        element: 'Powietrze',
+        elementalEnergy: 15.0,
+        category: 'Intuicja',
+        isCustom: false,
+        createdAt: DateTime.now(),
+      ),
+      SpiritualTaskModel(
+        id: 'default_3',
+        title: 'Dziennik Wdzięczności',
+        description: 'Zapisz 3 rzeczy, za które jesteś wdzięczny',
+        xpReward: 20,
+        element: 'Woda',
+        elementalEnergy: 12.0,
+        category: 'Spokój',
+        isCustom: false,
+        createdAt: DateTime.now(),
+      ),
+      SpiritualTaskModel(
+        id: 'default_4',
+        title: 'Kreatywne Wyrażenie',
+        description: 'Narysuj lub napisz coś kreatywnego przez 15 minut',
+        xpReward: 28,
+        element: 'Ogień',
+        elementalEnergy: 16.0,
+        category: 'Inspiracja',
+        isCustom: false,
+        createdAt: DateTime.now(),
+      ),
+    ];
   }
 
   @override
@@ -98,11 +204,25 @@ class _TasksScreenState extends State<TasksScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        IconButton(
+                          onPressed: () async {
+                            await _loadTasks();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Zadania odświeżone!'),
+                                backgroundColor: Colors.green,
+                                duration: Duration(seconds: 1),
+                              ),
+                            );
+                          },
+                          icon: Icon(Icons.refresh, color: Colors.amber),
+                          tooltip: 'Odśwież zadania',
+                        ),
                         Text('XP',
                             style:
                                 TextStyle(color: Colors.white70, fontSize: 9)),
                         LinearProgressIndicator(
-                          value: userState.expBar,
+                          value: userState?.expBar,
                           minHeight: 5,
                           backgroundColor: Colors.grey.shade700,
                           valueColor:
@@ -122,7 +242,7 @@ class _TasksScreenState extends State<TasksScreen>
                             style:
                                 TextStyle(color: Colors.white70, fontSize: 9)),
                         LinearProgressIndicator(
-                          value: userState.aura / 100.0,
+                          value: userState!.aura / 100.0,
                           minHeight: 5,
                           backgroundColor: Colors.grey.shade700,
                           valueColor:
@@ -265,7 +385,7 @@ class _TasksScreenState extends State<TasksScreen>
   }
 
   void _completeTask(SpiritualTaskModel task, int index) async {
-    if (userState.aura < (100.0 / 15.0)) {
+    if (userState!.aura < (100.0 / 15.0)) {
       MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(
           content: Text('Niewystarczająca aura! Poczekaj na regenerację.'),
@@ -282,13 +402,13 @@ class _TasksScreenState extends State<TasksScreen>
 
     try {
       // Zapisz ukończone zadanie do Firebase
-      await userState.addCompletedTaskFromModel(task);
+      await userState!.addCompletedTaskFromModel(task);
 
       // Zużyj aurę
-      await userState.consumeAura(100.0 / 15.0);
+      await userState!.consumeAura(100.0 / 15.0);
 
       // Ukończ zadanie z pełnym zapisem do Firebase
-      await userState.completeTask(
+      await userState!.completeTask(
         task.xpReward,
         0,
         task.element,
@@ -522,7 +642,7 @@ class _TasksScreenState extends State<TasksScreen>
                           'elementalEnergy': energy,
                           'category': 'Własne',
                           'isCustom': true,
-                          'createdBy': userState.currentUser?.id,
+                          'createdBy': userState!.currentUser?.id,
                           'createdAt': FieldValue.serverTimestamp(),
                           'isActive': true,
                         });
@@ -747,5 +867,58 @@ class _TasksScreenState extends State<TasksScreen>
         );
       },
     );
+  }
+
+  Future<void> _checkFirebaseData() async {
+    try {
+      // Sprawdź czy są jakiekolwiek zadania w globalTasks
+      QuerySnapshot snapshot = await FirebaseFirestore.instance
+          .collection('globalTasks')
+          .limit(1)
+          .get();
+
+      print('Liczba zadań w bazie: ${snapshot.docs.length}');
+
+      if (snapshot.docs.isEmpty) {
+        print('Brak zadań w bazie - dodaję zadania...');
+        await _addSampleTasksToFirebase();
+      }
+    } catch (e) {
+      print('Błąd sprawdzania Firebase: $e');
+    }
+  }
+
+// Dodaj przykładowe zadania jeśli baza jest pusta
+  Future<void> _addSampleTasksToFirebase() async {
+    try {
+      await FirebaseFirestore.instance.collection('globalTasks').add({
+        'title': 'Spacer w Naturze',
+        'description': 'Idź na 15-minutowy spacer do parku lub lasu',
+        'xpReward': 30,
+        'element': 'Ziemia',
+        'elementalEnergy': 20.0,
+        'category': 'Uziemienie',
+        'createdAt': FieldValue.serverTimestamp(),
+        'isActive': true,
+        'isCustom': false,
+      });
+
+      await FirebaseFirestore.instance.collection('globalTasks').add({
+        'title': 'Medytacja',
+        'description': 'Medytuj przez 10 minut',
+        'xpReward': 25,
+        'element': 'Powietrze',
+        'elementalEnergy': 15.0,
+        'category': 'Intuicja',
+        'createdAt': FieldValue.serverTimestamp(),
+        'isActive': true,
+        'isCustom': false,
+      });
+
+      print('Przykładowe zadania dodane!');
+      await _loadTasks(); // Odśwież listę
+    } catch (e) {
+      print('Błąd dodawania przykładowych zadań: $e');
+    }
   }
 }

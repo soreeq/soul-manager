@@ -339,7 +339,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen>
     with TickerProviderStateMixin {
-  late UserState userState;
+  UserState? userState;
   bool _taskCompleted = false;
   int _currentTaskIndex = 0;
   SpiritualTaskModel? _currentTask;
@@ -374,11 +374,12 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   void initState() {
     super.initState();
-    userState = Provider.of<UserState>(context, listen: false);
 
+    // Bezpieczna inicjalizacja userState
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (userState.currentUser == null) {
-        await userState.initializeUser();
+      userState = Provider.of<UserState>(context, listen: false);
+      if (userState?.currentUser == null) {
+        await userState?.initializeUser();
       }
       await _loadTasks();
       _refreshProgressBars();
@@ -474,23 +475,25 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   void _refreshProgressBars() {
+    if (userState == null) return; // Dodaj sprawdzenie
+
     _xpBarAnimation = Tween<double>(
       begin: 0.0,
-      end: userState.expBar,
+      end: userState!.expBar,
     ).animate(CurvedAnimation(parent: _xpBarController, curve: Curves.easeOut));
     _xpBarController.forward(from: 0.0);
 
     _auraBarAnimation = Tween<double>(
       begin: 0.0,
-      end: userState.aura / 100.0,
+      end: userState!.aura / 100.0,
     ).animate(
         CurvedAnimation(parent: _auraBarController, curve: Curves.easeOut));
     _auraBarController.forward(from: 0.0);
 
-    for (String element in userState.elementalEnergies.keys) {
+    for (String element in userState!.elementalEnergies.keys) {
       _elementalBarAnimations[element] = Tween<double>(
         begin: 0.0,
-        end: userState.elementalEnergies[element]! / 100.0,
+        end: userState!.elementalEnergies[element]! / 100.0,
       ).animate(CurvedAnimation(
           parent: _elementalBarControllers[element]!, curve: Curves.easeOut));
       _elementalBarControllers[element]!.forward(from: 0.0);
@@ -663,9 +666,9 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   void _completeDailyTask() async {
-    if (_taskCompleted || _currentTask == null) return;
+    if (_taskCompleted || _currentTask == null || userState == null) return;
 
-    if (userState.aura < (100.0 / 15.0)) {
+    if (userState!.aura < (100.0 / 15.0)) {
       MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(
           content: Text('Niewystarczająca aura! Poczekaj na regenerację.'),
@@ -679,19 +682,19 @@ class _DashboardScreenState extends State<DashboardScreen>
     try {
       setState(() {
         _taskCompleted = true;
-        _previousAuraValue = userState.aura / 100.0;
-        _previousXpBarValue = userState.expBar;
+        _previousAuraValue = userState!.aura / 100.0;
+        _previousXpBarValue = userState!.expBar;
 
-        for (String element in userState.elementalEnergies.keys) {
+        for (String element in userState!.elementalEnergies.keys) {
           _previousElementalValues[element] =
-              userState.elementalEnergies[element]!;
+              userState!.elementalEnergies[element]!;
         }
       });
 
-      await userState.addCompletedTaskFromModel(_currentTask!);
-      await userState.consumeAura(100.0 / 15.0);
+      await userState!.addCompletedTaskFromModel(_currentTask!);
+      await userState!.consumeAura(100.0 / 15.0);
 
-      bool levelUp = await userState.completeTask(_currentTask!.xpReward, 0,
+      bool levelUp = await userState!.completeTask(_currentTask!.xpReward, 0,
           _currentTask!.element, _currentTask!.elementalEnergy);
 
       if (!mounted) return;
@@ -699,23 +702,23 @@ class _DashboardScreenState extends State<DashboardScreen>
       setState(() {
         _auraBarAnimation = Tween<double>(
           begin: _previousAuraValue,
-          end: userState.aura / 100.0,
+          end: userState!.aura / 100.0,
         ).animate(
             CurvedAnimation(parent: _auraBarController, curve: Curves.easeOut));
         _auraBarController.forward(from: 0.0);
 
         _xpBarAnimation = Tween<double>(
           begin: _previousXpBarValue,
-          end: userState.expBar,
+          end: userState!.expBar,
         ).animate(
             CurvedAnimation(parent: _xpBarController, curve: Curves.easeOut));
         _xpBarController.forward(from: 0.0);
 
         String element = _currentTask!.element;
-        if (userState.elementalEnergies.containsKey(element)) {
+        if (userState!.elementalEnergies.containsKey(element)) {
           _elementalBarAnimations[element] = Tween<double>(
             begin: _previousElementalValues[element]! / 100.0,
-            end: userState.elementalEnergies[element]! / 100.0,
+            end: userState!.elementalEnergies[element]! / 100.0,
           ).animate(CurvedAnimation(
               parent: _elementalBarControllers[element]!,
               curve: Curves.easeOut));
@@ -724,7 +727,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       });
 
       if (levelUp) {
-        _showLevelUpEffect(userState.title);
+        _showLevelUpEffect(userState!.title);
       }
 
       MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
@@ -762,7 +765,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   void _addReflection() async {
     if (_reflectionController.text.isNotEmpty) {
-      await userState.addReflection(_reflectionController.text, 'reflection');
+      await userState!.addReflection(_reflectionController.text, 'reflection');
       _reflectionController.clear();
 
       MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
@@ -778,7 +781,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   void _addGratitude() async {
     if (_gratitudeController.text.isNotEmpty) {
-      await userState.addReflection(_gratitudeController.text, 'gratitude');
+      await userState!.addReflection(_gratitudeController.text, 'gratitude');
       _gratitudeController.clear();
 
       MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
@@ -977,6 +980,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                         ),
 
                         // Pasek Aury z regeneracją i tłem
+// W build() method, w sekcji Aura Dnia:
+// W build() method, w sekcji Aura Dnia:
                         Container(
                           margin: EdgeInsets.symmetric(horizontal: 16),
                           padding: EdgeInsets.all(16),
@@ -1016,14 +1021,25 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 style: TextStyle(
                                     color: Colors.white70, fontSize: 14),
                               ),
-                              if (userState.aura < 100.0)
-                                Text(
-                                  'Do pełnej regeneracji: ${timeToFull.inHours}h ${timeToFull.inMinutes % 60}min ${timeToFull.inSeconds % 60}s',
-                                  style: TextStyle(
-                                      color: Colors.orange,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold),
-                                ),
+                              // DYNAMICZNY CZAS REGENERACJI
+                              StreamBuilder<int>(
+                                stream: Stream.periodic(
+                                    Duration(seconds: 1), (i) => i),
+                                builder: (context, snapshot) {
+                                  final timeToFull = AuraManager.timeToFull();
+                                  if (userState.aura < 100.0 &&
+                                      timeToFull.inSeconds > 0) {
+                                    return Text(
+                                      'Do pełnej regeneracji: ${timeToFull.inHours}h ${timeToFull.inMinutes % 60}min ${timeToFull.inSeconds % 60}s',
+                                      style: TextStyle(
+                                          color: Colors.orange,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold),
+                                    );
+                                  }
+                                  return SizedBox.shrink();
+                                },
+                              ),
                             ],
                           ),
                         ),
