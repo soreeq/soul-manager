@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:soul_manager/screens/tasks_screen.dart';
 import 'dart:async';
 import 'dart:math';
@@ -29,6 +30,7 @@ class ReflectionJournal {
 }
 
 class CompletedTask {
+  final String? id;
   final String title;
   final String element;
   final int xpReward;
@@ -36,6 +38,7 @@ class CompletedTask {
   final DateTime completedAt;
 
   CompletedTask({
+    this.id,
     required this.title,
     required this.element,
     required this.xpReward,
@@ -357,7 +360,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen>
     with TickerProviderStateMixin {
-  UserState userState = UserState();
+  late UserState userState;
   bool _taskCompleted = false;
   int _currentTaskIndex = 0;
 
@@ -390,6 +393,15 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   void initState() {
     super.initState();
+    userState = Provider.of<UserState>(context, listen: false);
+
+    // Inicjalizuj dane użytkownika jeśli nie są załadowane
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (userState.currentUser == null) {
+        await userState.initializeUser();
+      }
+      _refreshProgressBars();
+    });
 
     // Inicjalizacja AuraManager
     AuraManager.initTimer();
@@ -496,17 +508,16 @@ class _DashboardScreenState extends State<DashboardScreen>
     // Odśwież pasek Aury
     _auraBarAnimation = Tween<double>(
       begin: 0.0,
-      end: AuraManager.aura / 100.0,
+      end: userState.aura / 100.0,
     ).animate(
         CurvedAnimation(parent: _auraBarController, curve: Curves.easeOut));
     _auraBarController.forward(from: 0.0);
 
     // Odśwież paski żywiołów
-    for (String element in ElementalEnergy.energies.keys) {
+    for (String element in userState.elementalEnergies.keys) {
       _elementalBarAnimations[element] = Tween<double>(
         begin: 0.0,
-        end: ElementalEnergy.energies[element]! /
-            ElementalEnergy.maxEnergyPerDay,
+        end: userState.elementalEnergies[element]! / 100.0,
       ).animate(CurvedAnimation(
           parent: _elementalBarControllers[element]!, curve: Curves.easeOut));
       _elementalBarControllers[element]!.forward(from: 0.0);
@@ -790,7 +801,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     if (_taskCompleted) return;
 
     // Sprawdź czy mamy wystarczająco aury
-    if (AuraManager.aura < AuraManager.auraDropPerTask) {
+    if (userState.aura < (100.0 / 15.0)) {
       MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(
           content: Text('Niewystarczająca aura! Poczekaj na regenerację.'),
@@ -814,19 +825,20 @@ class _DashboardScreenState extends State<DashboardScreen>
       // Uruchom animację bez await - nie blokuj UI
       _cardAnimationController.forward();
 
-      setState(() {
+      setState(() async {
         _taskCompleted = true;
-        _previousAuraValue = AuraManager.aura / 100.0;
+        _previousAuraValue = userState.aura / 100.0;
         _previousXpBarValue = userState.expBar;
 
         // Zapisz poprzednie wartości energii żywiołów
-        for (String element in ElementalEnergy.energies.keys) {
+        for (String element in userState.elementalEnergies.keys) {
           _previousElementalValues[element] =
               ElementalEnergy.energies[element]!;
         }
 
+        await userState.addCompletedTask(_currentTask);
         // Dodaj zadanie do listy wykonanych
-        CompletedTasksManager.addCompletedTask(_currentTask);
+        // CompletedTasksManager.addCompletedTask(_currentTask);
 
         // Zużyj aurę
         AuraManager.consumeAura();
@@ -1464,7 +1476,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
                     SizedBox(height: 16),
 
-                    // Dzisiejsze Statystyki
+// Dzisiejsze Statystyki - wyśrodkowane
                     Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Center(
@@ -1486,12 +1498,19 @@ class _DashboardScreenState extends State<DashboardScreen>
                               icon: Icons.star,
                               label: 'Punkty XP',
                               value: '${userState.xp}'),
-                          GestureDetector(
-                            onTap: _navigateToCompletedTasks,
-                            child: StatCard(
-                                icon: Icons.task_alt,
-                                label: 'Zadania dziś',
-                                value: '$todayCompletedTasks'),
+                          // WSTAW TUTAJ NOWY KOD:
+                          FutureBuilder<int>(
+                            future: userState.getTodayCompletedTasksCount(),
+                            builder: (context, snapshot) {
+                              int completedCount = snapshot.data ?? 0;
+                              return GestureDetector(
+                                onTap: _navigateToCompletedTasks,
+                                child: StatCard(
+                                    icon: Icons.task_alt,
+                                    label: 'Zadania dziś',
+                                    value: '$completedCount'),
+                              );
+                            },
                           ),
                         ],
                       ),

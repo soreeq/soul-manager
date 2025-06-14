@@ -271,10 +271,11 @@ class _TasksScreenState extends State<TasksScreen>
 
     setState(() {
       _completedTaskIndices.add(index);
-      CompletedTasksManager.addCompletedTask(task);
     });
 
     await AuraManager.consumeAura();
+
+    await userState.addCompletedTask(task);
 
     await userState.completeTask(
         task.xpReward, // xpReward

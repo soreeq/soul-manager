@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:soul_manager/screens/start_screen.dart';
+import 'package:soul_manager/user_state.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/tasks_screen.dart';
 import 'screens/mood_scanner_screen.dart';
 import 'screens/cosmogram_analysis_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'package:provider/provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,22 +24,24 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Soul Manager',
-      theme: ThemeData(
-        primarySwatch: Colors.purple,
-      ),
-      scaffoldMessengerKey:
-          scaffoldMessengerKey, // Globalny klucz dla SnackBarów
-      home: StartScreen(),
-      routes: {
-        '/astrology/daily_transits': (context) => DailyTransitsScreen(),
-      },
-      onGenerateRoute: (settings) {
-        // Możesz dodać bardziej złożoną logikę tras, jeśli będzie potrzebna
-        return null;
-      },
-    );
+    return ChangeNotifierProvider(
+        create: (context) => UserState()..initializeUser(),
+        child: MaterialApp(
+          title: 'Soul Manager',
+          theme: ThemeData(
+            primarySwatch: Colors.purple,
+          ),
+          scaffoldMessengerKey:
+              scaffoldMessengerKey, // Globalny klucz dla SnackBarów
+          home: StartScreen(),
+          routes: {
+            '/astrology/daily_transits': (context) => DailyTransitsScreen(),
+          },
+          onGenerateRoute: (settings) {
+            // Możesz dodać bardziej złożoną logikę tras, jeśli będzie potrzebna
+            return null;
+          },
+        ));
   }
 }
 

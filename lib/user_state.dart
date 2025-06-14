@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:soul_manager/screens/dashboard_screen.dart';
 
 // Zaktualizowana klasa ReflectionEntry z ID
 class ReflectionEntry {
@@ -112,6 +113,79 @@ class UserProfile {
 }
 
 class UserState extends ChangeNotifier {
+  Future<void> addCompletedTask(SpiritualTask task) async {
+    if (_currentUserId == null) return;
+
+    try {
+      await _firestore
+          .collection('users')
+          .doc(_currentUserId!)
+          .collection('completedTasks')
+          .add({
+        'title': task.title,
+        'description': task.description,
+        'element': task.element,
+        'xpReward': task.xpReward,
+        'elementalEnergy': task.elementalEnergy,
+        'category': task.category,
+        'completedAt': FieldValue.serverTimestamp(),
+        'userId': _currentUserId,
+      });
+    } catch (e) {
+      print('Błąd dodawania ukończonego zadania: $e');
+    }
+  }
+
+  // Dodaj również metodę do pobierania ukończonych zadań
+  Stream<List<CompletedTask>> getCompletedTasksStream() {
+    if (_currentUserId == null) return Stream.value([]);
+
+    return _firestore
+        .collection('users')
+        .doc(_currentUserId!)
+        .collection('completedTasks')
+        .orderBy('completedAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) {
+              Map<String, dynamic> data = doc.data();
+              return CompletedTask(
+                id: doc.id, // Przekaż ID dokumentu z Firebase
+                title: data['title'] ?? '',
+                element: data['element'] ?? '',
+                xpReward: data['xpReward'] ?? 0,
+                elementalEnergy: data['elementalEnergy']?.toDouble() ?? 0.0,
+                completedAt: data['completedAt'] != null
+                    ? (data['completedAt'] as Timestamp).toDate()
+                    : DateTime.now(),
+              );
+            }).toList());
+  }
+
+  // Pobierz liczbę dzisiejszych zadań
+  Future<int> getTodayCompletedTasksCount() async {
+    if (_currentUserId == null) return 0;
+
+    try {
+      DateTime today = DateTime.now();
+      DateTime startOfDay = DateTime(today.year, today.month, today.day);
+      DateTime endOfDay = startOfDay.add(Duration(days: 1));
+
+      QuerySnapshot snapshot = await _firestore
+          .collection('users')
+          .doc(_currentUserId!)
+          .collection('completedTasks')
+          .where('completedAt',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+          .where('completedAt', isLessThan: Timestamp.fromDate(endOfDay))
+          .get();
+
+      return snapshot.docs.length;
+    } catch (e) {
+      print('Błąd pobierania liczby zadań: $e');
+      return 0;
+    }
+  }
+
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   UserProfile? _currentUser;
   String? _currentUserId;
