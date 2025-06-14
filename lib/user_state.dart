@@ -49,6 +49,25 @@ class UserProfile {
 
   factory UserProfile.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+
+    // Bezpieczne konwersje typów
+    Map<String, double> elementalEnergiesMap = {};
+    if (data['elementalEnergies'] != null) {
+      Map<String, dynamic> energiesData =
+          Map<String, dynamic>.from(data['elementalEnergies']);
+      energiesData.forEach((key, value) {
+        elementalEnergiesMap[key] =
+            (value is int) ? value.toDouble() : (value as double? ?? 0.0);
+      });
+    } else {
+      elementalEnergiesMap = {
+        'Ziemia': 0.0,
+        'Ogień': 0.0,
+        'Woda': 0.0,
+        'Powietrze': 0.0,
+      };
+    }
+
     return UserProfile(
       id: doc.id,
       nickname: data['nickname'] ?? '',
@@ -56,14 +75,10 @@ class UserProfile {
       birthPlace: data['birthPlace'] ?? '',
       level: data['level'] ?? 1,
       xp: data['xp'] ?? 0,
-      aura: data['aura']?.toDouble() ?? 100.0,
-      elementalEnergies: Map<String, double>.from(data['elementalEnergies'] ??
-          {
-            'Ziemia': 0.0,
-            'Ogień': 0.0,
-            'Woda': 0.0,
-            'Powietrze': 0.0,
-          }),
+      aura: (data['aura'] is int)
+          ? (data['aura'] as int).toDouble()
+          : (data['aura'] as double? ?? 100.0),
+      elementalEnergies: elementalEnergiesMap,
       createdAt: data['createdAt'] != null
           ? (data['createdAt'] as Timestamp).toDate()
           : DateTime.now(),
@@ -221,16 +236,26 @@ class UserState extends ChangeNotifier {
   String get title => _getTitleByLevel(level);
 
   // Inicjalizacja użytkownika z Firebase Auth
+  // Zaktualizowana metoda initializeUser
   Future<void> initializeUser() async {
     try {
       User? firebaseUser = FirebaseAuth.instance.currentUser;
       if (firebaseUser != null) {
         _currentUserId = firebaseUser.uid;
+
+        // Sprawdź połączenie z Firestore
+        await _firestore.enableNetwork();
+
         await _loadUserData();
         _setupRealtimeListener();
+
+        // Bezpiecznie oblicz i zapisz znak zodiaku
+        await _calculateAndSaveZodiacSign();
       }
     } catch (e) {
       print('Błąd inicjalizacji użytkownika: $e');
+      // Spróbuj ponownie po 2 sekundach
+      Future.delayed(Duration(seconds: 2), () => initializeUser());
     }
   }
 
@@ -302,6 +327,17 @@ class UserState extends ChangeNotifier {
     }
   }
 
+  // Bezpieczne wykonywanie operacji Firebase
+  Future<void> _performFirebaseOperationSafely(
+      Future<void> Function() operation) async {
+    try {
+      await operation();
+    } catch (e) {
+      print('Błąd operacji Firebase: $e');
+      // Nie blokuj UI w przypadku błędu
+    }
+  }
+
   // Ukończ zadanie z zapisem do Firebase
   Future<bool> completeTask(int xpReward, int auraChange, String element,
       double elementalEnergy) async {
@@ -313,7 +349,6 @@ class UserState extends ChangeNotifier {
       final newLevel = _getLevelByXp(newXp);
       final newAura = (_currentUser!.aura + auraChange).clamp(0.0, 100.0);
 
-      // Aktualizuj energie żywiołów
       Map<String, double> newElementalEnergies =
           Map.from(_currentUser!.elementalEnergies);
       if (element.isNotEmpty && newElementalEnergies.containsKey(element)) {
@@ -322,16 +357,7 @@ class UserState extends ChangeNotifier {
                 .clamp(0.0, 100.0);
       }
 
-      // Zapisz do Firebase
-      await _firestore.collection('users').doc(_currentUserId!).update({
-        'xp': newXp,
-        'level': newLevel,
-        'aura': newAura,
-        'elementalEnergies': newElementalEnergies,
-        'lastActive': FieldValue.serverTimestamp(),
-      });
-
-      // Aktualizuj lokalnie (będzie też zaktualizowane przez listener)
+      // Aktualizuj lokalnie natychmiast (dla responsywności UI)
       _currentUser = _currentUser!.copyWith(
         xp: newXp,
         level: newLevel,
@@ -341,24 +367,22 @@ class UserState extends ChangeNotifier {
       );
 
       notifyListeners();
+
+      // Wykonaj operację Firebase w tle
+      await _performFirebaseOperationSafely(() async {
+        await _firestore.collection('users').doc(_currentUserId!).update({
+          'xp': newXp,
+          'level': newLevel,
+          'aura': newAura,
+          'elementalEnergies': newElementalEnergies,
+          'lastActive': FieldValue.serverTimestamp(),
+        });
+      });
+
       return newLevel > oldLevel;
     } catch (e) {
       print('Błąd ukończenia zadania: $e');
       return false;
-    }
-  }
-
-  // Aktualizuj aurę
-  Future<void> updateAura(double newAura) async {
-    if (_currentUser == null || _currentUserId == null) return;
-
-    try {
-      await _firestore.collection('users').doc(_currentUserId!).update({
-        'aura': newAura.clamp(0.0, 100.0),
-        'lastActive': FieldValue.serverTimestamp(),
-      });
-    } catch (e) {
-      print('Błąd aktualizacji aury: $e');
     }
   }
 
@@ -460,5 +484,270 @@ class UserState extends ChangeNotifier {
     ];
 
     return titles[level.clamp(1, 10) - 1];
+  }
+
+  Future<void> _calculateAndSaveZodiacSign() async {
+    if (_currentUser?.birthDate.isNotEmpty == true && _currentUserId != null) {
+      try {
+        String zodiacSign = _getZodiacSign(_currentUser!.birthDate);
+        await _firestore.collection('users').doc(_currentUserId!).update({
+          'zodiacSign': zodiacSign,
+        });
+      } catch (e) {
+        print('Błąd zapisywania znaku zodiaku: $e');
+      }
+    }
+  }
+
+  String _getZodiacSign(String birthDate) {
+    try {
+      DateTime date = DateTime.parse(birthDate);
+      int month = date.month;
+      int day = date.day;
+
+      if ((month == 3 && day >= 21) || (month == 4 && day <= 19))
+        return 'Baran';
+      if ((month == 4 && day >= 20) || (month == 5 && day <= 20)) return 'Byk';
+      if ((month == 5 && day >= 21) || (month == 6 && day <= 20))
+        return 'Bliźnięta';
+      if ((month == 6 && day >= 21) || (month == 7 && day <= 22)) return 'Rak';
+      if ((month == 7 && day >= 23) || (month == 8 && day <= 22)) return 'Lew';
+      if ((month == 8 && day >= 23) || (month == 9 && day <= 22))
+        return 'Panna';
+      if ((month == 9 && day >= 23) || (month == 10 && day <= 22))
+        return 'Waga';
+      if ((month == 10 && day >= 23) || (month == 11 && day <= 21))
+        return 'Skorpion';
+      if ((month == 11 && day >= 22) || (month == 12 && day <= 21))
+        return 'Strzelec';
+      if ((month == 12 && day >= 22) || (month == 1 && day <= 19))
+        return 'Koziorożec';
+      if ((month == 1 && day >= 20) || (month == 2 && day <= 18))
+        return 'Wodnik';
+      if ((month == 2 && day >= 19) || (month == 3 && day <= 20)) return 'Ryby';
+    } catch (e) {
+      print('Błąd obliczania znaku zodiaku: $e');
+      return 'Nieznany';
+    }
+    return 'Nieznany';
+  }
+
+  // Dodaj do getterów w UserState:
+  String get zodiacSign {
+    if (_currentUser?.birthDate.isNotEmpty == true) {
+      return _getZodiacSign(_currentUser!.birthDate);
+    }
+    return 'Nieznany';
+  }
+
+  String get zodiacEmoji {
+    switch (zodiacSign) {
+      case 'Baran':
+        return '♈';
+      case 'Byk':
+        return '♉';
+      case 'Bliźnięta':
+        return '♊';
+      case 'Rak':
+        return '♋';
+      case 'Lew':
+        return '♌';
+      case 'Panna':
+        return '♍';
+      case 'Waga':
+        return '♎';
+      case 'Skorpion':
+        return '♏';
+      case 'Strzelec':
+        return '♐';
+      case 'Koziorożec':
+        return '♑';
+      case 'Wodnik':
+        return '♒';
+      case 'Ryby':
+        return '♓';
+      default:
+        return '🌟';
+    }
+  }
+
+// Dodaj do klasy UserState
+  Future<void> importTasksToFirestore() async {
+    try {
+      final tasks = [
+        {
+          "title": "Spacer w Naturze",
+          "description": "Idź na 15-minutowy spacer do parku lub lasu",
+          "xpReward": 30,
+          "element": "Ziemia",
+          "elementalEnergy": 20.0,
+          "category": "Uziemienie"
+        },
+        {
+          "title": "Ćwiczenie Boso",
+          "description": "Stań boso na trawie przez 5 minut",
+          "xpReward": 20,
+          "element": "Ziemia",
+          "elementalEnergy": 15.0,
+          "category": "Uziemienie"
+        },
+        {
+          "title": "Dbanie o Rośliny",
+          "description": "Podlej rośliny w domu lub ogrodzie",
+          "xpReward": 15,
+          "element": "Ziemia",
+          "elementalEnergy": 10.0,
+          "category": "Uziemienie"
+        },
+        {
+          "title": "Dziennik Kreatywny",
+          "description": "Zapisz 3 pomysły lub myśli bez oceniania",
+          "xpReward": 25,
+          "element": "Ogień",
+          "elementalEnergy": 15.0,
+          "category": "Inspiracja"
+        },
+        {
+          "title": "Rysunek Intuicyjny",
+          "description": "Narysuj coś odzwierciedlającego Twój nastrój",
+          "xpReward": 20,
+          "element": "Ogień",
+          "elementalEnergy": 10.0,
+          "category": "Inspiracja"
+        },
+        {
+          "title": "Taniec Wyrażenia",
+          "description": "Tańcz przez 5 minut, wyrażając emocje",
+          "xpReward": 30,
+          "element": "Ogień",
+          "elementalEnergy": 12.0,
+          "category": "Inspiracja"
+        },
+        {
+          "title": "Medytacja przy Wodzie",
+          "description": "Medytuj przez 10 minut przy wodzie",
+          "xpReward": 35,
+          "element": "Woda",
+          "elementalEnergy": 20.0,
+          "category": "Spokój"
+        },
+        {
+          "title": "Kąpiel Oczyszczająca",
+          "description": "Weź kąpiel z solą, wizualizując oczyszczenie",
+          "xpReward": 25,
+          "element": "Woda",
+          "elementalEnergy": 15.0,
+          "category": "Spokój"
+        },
+        {
+          "title": "Wdzięczność za Emocje",
+          "description":
+              "Zapisz 3 rzeczy związane z emocjami, za które jesteś wdzięczny",
+          "xpReward": 20,
+          "element": "Woda",
+          "elementalEnergy": 10.0,
+          "category": "Spokój"
+        },
+        {
+          "title": "Ćwiczenie Oddechowe",
+          "description": "Wykonaj 5-minutowe głębokie oddychanie",
+          "xpReward": 25,
+          "element": "Powietrze",
+          "elementalEnergy": 15.0,
+          "category": "Intuicja"
+        },
+        {
+          "title": "Tarot lub Runy",
+          "description": "Wyciągnij kartę tarota i zapisz przesłanie",
+          "xpReward": 20,
+          "element": "Powietrze",
+          "elementalEnergy": 10.0,
+          "category": "Intuicja"
+        },
+        {
+          "title": "Słuchanie Ciszy",
+          "description": "Spędź 5 minut w całkowitej ciszy",
+          "xpReward": 30,
+          "element": "Powietrze",
+          "elementalEnergy": 12.0,
+          "category": "Intuicja"
+        }
+      ];
+
+      for (var task in tasks) {
+        await _firestore.collection('globalTasks').add({
+          ...task,
+          'createdAt': FieldValue.serverTimestamp(),
+          'isActive': true,
+        });
+      }
+      print('Zadania zaimportowane do Firestore!');
+    } catch (e) {
+      print('Błąd importu zadań: $e');
+    }
+  }
+
+  Future<void> addCompletedTaskFromModel(SpiritualTaskModel task) async {
+    if (_currentUserId == null) return;
+
+    try {
+      await _firestore
+          .collection('users')
+          .doc(_currentUserId!)
+          .collection('completedTasks')
+          .add({
+        'title': task.title,
+        'description': task.description,
+        'element': task.element,
+        'xpReward': task.xpReward,
+        'elementalEnergy': task.elementalEnergy,
+        'category': task.category,
+        'taskId': task.id,
+        'completedAt': FieldValue.serverTimestamp(),
+        'userId': _currentUserId,
+      });
+    } catch (e) {
+      print('Błąd dodawania ukończonego zadania: $e');
+    }
+  }
+
+  // DODAJ TĘ METODĘ - zużywanie aury
+  Future<void> consumeAura(double amount) async {
+    if (_currentUserId == null) return;
+
+    try {
+      double newAura = (aura - amount).clamp(0.0, 100.0);
+
+      // Aktualizuj lokalnie natychmiast
+      if (_currentUser != null) {
+        _currentUser = _currentUser!.copyWith(
+          aura: newAura,
+          lastActive: DateTime.now(),
+        );
+        notifyListeners();
+      }
+
+      // Zapisz do Firebase
+      await _firestore.collection('users').doc(_currentUserId!).update({
+        'aura': newAura,
+        'lastActive': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print('Błąd zużywania aury: $e');
+    }
+  }
+
+  // DODAJ TĘ METODĘ - regeneracja aury
+  Future<void> updateAura(double newAura) async {
+    if (_currentUser == null || _currentUserId == null) return;
+
+    try {
+      await _firestore.collection('users').doc(_currentUserId!).update({
+        'aura': newAura.clamp(0.0, 100.0),
+        'lastActive': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print('Błąd aktualizacji aury: $e');
+    }
   }
 }

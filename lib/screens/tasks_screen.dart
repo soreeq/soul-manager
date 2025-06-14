@@ -1,8 +1,13 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'dart:math';
-import '../main.dart'; // Dostęp do globalnego klucza ScaffoldMessenger
-import '../user_state.dart'; // Dostęp do stanu użytkownika
-import 'dashboard_screen.dart'; // Dostęp do klas pomocniczych
+import '../main.dart';
+import '../user_state.dart';
+import 'dashboard_screen.dart';
+
+// Alias dla zgodności
+typedef SpiritualTask = SpiritualTaskModel;
 
 class TasksScreen extends StatefulWidget {
   @override
@@ -13,14 +18,18 @@ class _TasksScreenState extends State<TasksScreen>
     with TickerProviderStateMixin {
   String _selectedTimeFilter = 'Dzienne';
   String? _selectedElementFilter;
-  UserState userState = UserState();
+  late UserState userState;
   late AnimationController _completionAnimationController;
   late Animation<double> _completionAnimation;
   Set<int> _completedTaskIndices = {};
+  List<SpiritualTaskModel> _availableTasks = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    userState = Provider.of<UserState>(context, listen: false);
+
     _completionAnimationController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -29,6 +38,22 @@ class _TasksScreenState extends State<TasksScreen>
       parent: _completionAnimationController,
       curve: Curves.elasticOut,
     );
+
+    _loadTasks();
+  }
+
+  Future<void> _loadTasks() async {
+    try {
+      _availableTasks = await TaskManager.getAllTasks();
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Błąd ładowania zadań: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -39,8 +64,7 @@ class _TasksScreenState extends State<TasksScreen>
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.symmetric(
-          horizontal: 16.0, vertical: 8.0), // Zmniejszony padding
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [Color(0xFF6B46C1), Color(0xFF34495E)],
@@ -55,12 +79,11 @@ class _TasksScreenState extends State<TasksScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Zmniejszony napis
           Text(
-            'Zadania spirytualne',
+            'Zadania',
             style: TextStyle(
               color: Colors.amber,
-              fontSize: 18, // Zmniejszone z 24 na 18
+              fontSize: 18,
               fontWeight: FontWeight.bold,
               fontFamily: 'Cinzel',
             ),
@@ -70,9 +93,8 @@ class _TasksScreenState extends State<TasksScreen>
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  // Pasek XP
                   Container(
-                    width: 80, // Zmniejszone z 100 na 80
+                    width: 80,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -81,7 +103,7 @@ class _TasksScreenState extends State<TasksScreen>
                                 TextStyle(color: Colors.white70, fontSize: 9)),
                         LinearProgressIndicator(
                           value: userState.expBar,
-                          minHeight: 5, // Zmniejszone z 6 na 5
+                          minHeight: 5,
                           backgroundColor: Colors.grey.shade700,
                           valueColor:
                               AlwaysStoppedAnimation<Color>(Colors.blueAccent),
@@ -90,10 +112,9 @@ class _TasksScreenState extends State<TasksScreen>
                       ],
                     ),
                   ),
-                  SizedBox(height: 4), // Zmniejszone z 6 na 4
-                  // Pasek Aury
+                  SizedBox(height: 4),
                   Container(
-                    width: 80, // Zmniejszone z 100 na 80
+                    width: 80,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -101,8 +122,8 @@ class _TasksScreenState extends State<TasksScreen>
                             style:
                                 TextStyle(color: Colors.white70, fontSize: 9)),
                         LinearProgressIndicator(
-                          value: AuraManager.aura / 100.0,
-                          minHeight: 5, // Zmniejszone z 6 na 5
+                          value: userState.aura / 100.0,
+                          minHeight: 5,
                           backgroundColor: Colors.grey.shade700,
                           valueColor:
                               AlwaysStoppedAnimation<Color>(Color(0xFFD4AF37)),
@@ -113,9 +134,9 @@ class _TasksScreenState extends State<TasksScreen>
                   ),
                 ],
               ),
-              SizedBox(width: 8), // Zmniejszone z 12 na 8
+              SizedBox(width: 8),
               CircleAvatar(
-                radius: 20, // Zmniejszone z 25 na 20
+                radius: 20,
                 backgroundImage: AssetImage('assets/avatar_placeholder.png'),
                 backgroundColor: Colors.amber.withOpacity(0.3),
                 child: Container(
@@ -134,29 +155,24 @@ class _TasksScreenState extends State<TasksScreen>
 
   Widget _buildFilters() {
     return Container(
-      padding: EdgeInsets.all(12), // Zmniejszone z 16 na 12
+      padding: EdgeInsets.all(12),
       child: Column(
         children: [
-          // Filtry Czasu
           Text(
             'Kategorie',
             style: TextStyle(
-                color: Colors.amber,
-                fontSize: 14,
-                fontWeight: FontWeight.bold), // Zmniejszone z 16 na 14
+                color: Colors.amber, fontSize: 14, fontWeight: FontWeight.bold),
           ),
-          SizedBox(height: 6), // Zmniejszone z 8 na 6
+          SizedBox(height: 6),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: ['Dzienne', 'Tygodniowe', 'Specjalne'].map((filter) {
                 return Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 3.0), // Zmniejszone z 4 na 3
+                  padding: const EdgeInsets.symmetric(horizontal: 3.0),
                   child: ChoiceChip(
-                    label: Text(filter,
-                        style: TextStyle(fontSize: 12)), // Zmniejszona czcionka
+                    label: Text(filter, style: TextStyle(fontSize: 12)),
                     selected: _selectedTimeFilter == filter,
                     onSelected: (selected) {
                       setState(() {
@@ -170,28 +186,23 @@ class _TasksScreenState extends State<TasksScreen>
                           ? Colors.black
                           : Colors.white,
                       fontWeight: FontWeight.bold,
-                      fontSize: 12, // Zmniejszona czcionka
+                      fontSize: 12,
                     ),
                   ),
                 );
               }).toList(),
             ),
           ),
-          SizedBox(height: 12), // Zmniejszone z 16 na 12
-
-          // Filtry Żywiołów - tylko ikony
+          SizedBox(height: 12),
           Text(
             'Żywioły',
             style: TextStyle(
-                color: Colors.amber,
-                fontSize: 14,
-                fontWeight: FontWeight.bold), // Zmniejszone z 16 na 14
+                color: Colors.amber, fontSize: 14, fontWeight: FontWeight.bold),
           ),
-          SizedBox(height: 6), // Zmniejszone z 8 na 6
+          SizedBox(height: 6),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              // Przycisk "Wszystkie"
               GestureDetector(
                 onTap: () {
                   setState(() {
@@ -205,10 +216,7 @@ class _TasksScreenState extends State<TasksScreen>
                         ? Colors.amber
                         : Color(0xFF2C3E50),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: Colors.amber,
-                      width: 2,
-                    ),
+                    border: Border.all(color: Colors.amber, width: 2),
                   ),
                   child: Icon(
                     Icons.all_inclusive,
@@ -219,7 +227,6 @@ class _TasksScreenState extends State<TasksScreen>
                   ),
                 ),
               ),
-              // Przyciski żywiołów - tylko ikony
               ...ElementalEnergy.energies.keys.map((element) {
                 return GestureDetector(
                   onTap: () {
@@ -257,8 +264,8 @@ class _TasksScreenState extends State<TasksScreen>
     );
   }
 
-  void _completeTask(SpiritualTask task, int index) async {
-    if (AuraManager.aura < AuraManager.auraDropPerTask) {
+  void _completeTask(SpiritualTaskModel task, int index) async {
+    if (userState.aura < (100.0 / 15.0)) {
       MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(
           content: Text('Niewystarczająca aura! Poczekaj na regenerację.'),
@@ -273,29 +280,46 @@ class _TasksScreenState extends State<TasksScreen>
       _completedTaskIndices.add(index);
     });
 
-    await AuraManager.consumeAura();
+    try {
+      // Zapisz ukończone zadanie do Firebase
+      await userState.addCompletedTaskFromModel(task);
 
-    await userState.addCompletedTask(task);
+      // Zużyj aurę
+      await userState.consumeAura(100.0 / 15.0);
 
-    await userState.completeTask(
-        task.xpReward, // xpReward
-        0, // auraChange
-        task.element, // element
-        task.elementalEnergy // elementalEnergy
-        );
+      // Ukończ zadanie z pełnym zapisem do Firebase
+      await userState.completeTask(
+        task.xpReward,
+        0,
+        task.element,
+        task.elementalEnergy,
+      );
 
-    _completionAnimationController.forward().then((_) {
-      _completionAnimationController.reverse();
-    });
+      _completionAnimationController.forward().then((_) {
+        _completionAnimationController.reverse();
+      });
 
-    MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
-      SnackBar(
-        content: Text(
-            'Zadanie wykonane! Otrzymano +${task.xpReward} XP i +${task.elementalEnergy.round()} ${task.element}'),
-        backgroundColor: Color(0xFFD4AF37),
-        duration: Duration(seconds: 3),
-      ),
-    );
+      MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(
+          content: Text(
+              'Zadanie wykonane! Otrzymano +${task.xpReward} XP i +${task.elementalEnergy.round()} ${task.element}'),
+          backgroundColor: Color(0xFFD4AF37),
+          duration: Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      print('Błąd wykonywania zadania: $e');
+      setState(() {
+        _completedTaskIndices.remove(index);
+      });
+      MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(
+          content: Text('Wystąpił błąd podczas wykonywania zadania'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   void _showAddTaskDialog() {
@@ -482,27 +506,48 @@ class _TasksScreenState extends State<TasksScreen>
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8)),
                   ),
-                  onPressed: () {
+                  onPressed: () async {
                     if (_formKey.currentState!.validate()) {
                       _formKey.currentState!.save();
-                      setState(() {
-                        TaskManager.allTasks.add(SpiritualTask(
-                          title: title,
-                          description: description,
-                          xpReward: xp,
-                          element: element,
-                          elementalEnergy: energy,
-                          category: 'Własne',
-                        ));
-                      });
-                      Navigator.of(context).pop();
-                      MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
-                        SnackBar(
-                          content: Text('Nowe zadanie dodane!'),
-                          backgroundColor: Color(0xFFD4AF37),
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
+
+                      // Dodaj zadanie do Firebase
+                      try {
+                        await FirebaseFirestore.instance
+                            .collection('globalTasks')
+                            .add({
+                          'title': title,
+                          'description': description,
+                          'xpReward': xp,
+                          'element': element,
+                          'elementalEnergy': energy,
+                          'category': 'Własne',
+                          'isCustom': true,
+                          'createdBy': userState.currentUser?.id,
+                          'createdAt': FieldValue.serverTimestamp(),
+                          'isActive': true,
+                        });
+
+                        // Odśwież listę zadań
+                        await _loadTasks();
+
+                        Navigator.of(context).pop();
+                        MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+                          SnackBar(
+                            content: Text('Nowe zadanie dodane!'),
+                            backgroundColor: Color(0xFFD4AF37),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      } catch (e) {
+                        print('Błąd dodawania zadania: $e');
+                        MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+                          SnackBar(
+                            content: Text('Błąd podczas dodawania zadania'),
+                            backgroundColor: Colors.red,
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      }
                     }
                   },
                   child: Text('Dodaj', style: TextStyle(color: Colors.black)),
@@ -517,7 +562,7 @@ class _TasksScreenState extends State<TasksScreen>
 
   @override
   Widget build(BuildContext context) {
-    final filteredTasks = TaskManager.allTasks.where((task) {
+    final filteredTasks = _availableTasks.where((task) {
       if (_selectedElementFilter != null &&
           task.element != _selectedElementFilter) {
         return false;
@@ -525,131 +570,182 @@ class _TasksScreenState extends State<TasksScreen>
       return true;
     }).toList();
 
-    return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/splash.png'),
-            fit: BoxFit.cover,
-            colorFilter: ColorFilter.mode(
-              Colors.black.withOpacity(0.5),
-              BlendMode.darken,
-            ),
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              _buildHeader(),
-              _buildFilters(),
-              Expanded(
-                child: ListView.builder(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: filteredTasks.length,
-                  itemBuilder: (context, index) {
-                    final task = filteredTasks[index];
-                    final globalIndex = TaskManager.allTasks.indexOf(task);
-                    final isCompleted =
-                        _completedTaskIndices.contains(globalIndex);
-
-                    return AnimatedBuilder(
-                      animation: _completionAnimation,
-                      builder: (context, child) {
-                        return Transform.scale(
-                          scale: isCompleted
-                              ? 1.0 + (_completionAnimation.value * 0.1)
-                              : 1.0,
-                          child: Card(
-                            color: isCompleted
-                                ? Colors.green.withOpacity(0.3)
-                                : Color(0xFF2C3E50).withOpacity(0.9),
-                            margin: EdgeInsets.only(bottom: 12),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
-                            child: ListTile(
-                              leading: Container(
-                                padding: EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: ElementalEnergy.getElementColor(
-                                          task.element)
-                                      .withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: ElementalEnergy.getElementColor(
-                                        task.element),
-                                    width: 2,
-                                  ),
-                                ),
-                                child: Icon(
-                                  ElementalEnergy.getElementIcon(task.element),
-                                  color: ElementalEnergy.getElementColor(
-                                      task.element),
-                                  size: 30,
-                                ),
-                              ),
-                              title: Text(
-                                task.title,
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  decoration: isCompleted
-                                      ? TextDecoration.lineThrough
-                                      : null,
-                                ),
-                              ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    task.description,
-                                    style: TextStyle(color: Colors.white70),
-                                  ),
-                                  SizedBox(height: 4),
-                                  Text(
-                                    'Nagroda: +${task.xpReward} XP, +${task.elementalEnergy.round()} ${task.element}',
-                                    style: TextStyle(
-                                        color: Colors.greenAccent,
-                                        fontSize: 12),
-                                  ),
-                                  Text(
-                                    'Kategoria: ${task.category}',
-                                    style: TextStyle(
-                                        color: Colors.amber, fontSize: 12),
-                                  ),
-                                ],
-                              ),
-                              trailing: isCompleted
-                                  ? Icon(Icons.check_circle,
-                                      color: Colors.green, size: 30)
-                                  : ElevatedButton(
-                                      onPressed: () =>
-                                          _completeTask(task, globalIndex),
-                                      child: Text('Wykonaj'),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Color(0xFFD4AF37),
-                                        shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(8)),
-                                      ),
-                                    ),
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  },
+    return Consumer<UserState>(
+      builder: (context, userState, child) {
+        return Scaffold(
+          body: Container(
+            decoration: BoxDecoration(
+              image: DecorationImage(
+                image: AssetImage('assets/splash.png'),
+                fit: BoxFit.cover,
+                colorFilter: ColorFilter.mode(
+                  Colors.black.withOpacity(0.5),
+                  BlendMode.darken,
                 ),
               ),
-            ],
+            ),
+            child: SafeArea(
+              child: Column(
+                children: [
+                  _buildHeader(),
+                  _buildFilters(),
+                  Expanded(
+                    child: _isLoading
+                        ? Center(
+                            child: CircularProgressIndicator(
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.amber),
+                            ),
+                          )
+                        : filteredTasks.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.task_alt,
+                                        color: Colors.amber, size: 64),
+                                    SizedBox(height: 16),
+                                    Text(
+                                      'Brak zadań do wyświetlenia',
+                                      style: TextStyle(
+                                          color: Colors.white70, fontSize: 18),
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      'Dodaj własne zadanie lub zmień filtry',
+                                      style: TextStyle(
+                                          color: Colors.white54, fontSize: 14),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : ListView.builder(
+                                padding: EdgeInsets.symmetric(horizontal: 16),
+                                itemCount: filteredTasks.length,
+                                itemBuilder: (context, index) {
+                                  final task = filteredTasks[index];
+                                  final isCompleted =
+                                      _completedTaskIndices.contains(index);
+
+                                  return AnimatedBuilder(
+                                    animation: _completionAnimation,
+                                    builder: (context, child) {
+                                      return Transform.scale(
+                                        scale: isCompleted
+                                            ? 1.0 +
+                                                (_completionAnimation.value *
+                                                    0.1)
+                                            : 1.0,
+                                        child: Card(
+                                          color: isCompleted
+                                              ? Colors.green.withOpacity(0.3)
+                                              : Color(0xFF2C3E50)
+                                                  .withOpacity(0.9),
+                                          margin: EdgeInsets.only(bottom: 12),
+                                          shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12)),
+                                          child: ListTile(
+                                            leading: Container(
+                                              padding: EdgeInsets.all(8),
+                                              decoration: BoxDecoration(
+                                                color: ElementalEnergy
+                                                        .getElementColor(
+                                                            task.element)
+                                                    .withOpacity(0.2),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                border: Border.all(
+                                                  color: ElementalEnergy
+                                                      .getElementColor(
+                                                          task.element),
+                                                  width: 2,
+                                                ),
+                                              ),
+                                              child: Icon(
+                                                ElementalEnergy.getElementIcon(
+                                                    task.element),
+                                                color: ElementalEnergy
+                                                    .getElementColor(
+                                                        task.element),
+                                                size: 30,
+                                              ),
+                                            ),
+                                            title: Text(
+                                              task.title,
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                decoration: isCompleted
+                                                    ? TextDecoration.lineThrough
+                                                    : null,
+                                              ),
+                                            ),
+                                            subtitle: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  task.description,
+                                                  style: TextStyle(
+                                                      color: Colors.white70),
+                                                ),
+                                                SizedBox(height: 4),
+                                                Text(
+                                                  'Nagroda: +${task.xpReward} XP, +${task.elementalEnergy.round()} ${task.element}',
+                                                  style: TextStyle(
+                                                      color: Colors.greenAccent,
+                                                      fontSize: 12),
+                                                ),
+                                                Text(
+                                                  'Kategoria: ${task.category}',
+                                                  style: TextStyle(
+                                                      color: Colors.amber,
+                                                      fontSize: 12),
+                                                ),
+                                              ],
+                                            ),
+                                            trailing: isCompleted
+                                                ? Icon(Icons.check_circle,
+                                                    color: Colors.green,
+                                                    size: 30)
+                                                : ElevatedButton(
+                                                    onPressed: () =>
+                                                        _completeTask(
+                                                            task, index),
+                                                    child: Text('Wykonaj'),
+                                                    style: ElevatedButton
+                                                        .styleFrom(
+                                                      backgroundColor:
+                                                          Color(0xFFD4AF37),
+                                                      shape:
+                                                          RoundedRectangleBorder(
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                          8)),
+                                                    ),
+                                                  ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddTaskDialog,
-        icon: Icon(Icons.add, color: Colors.black),
-        label: Text('Dodaj zadanie', style: TextStyle(color: Colors.black)),
-        backgroundColor: Colors.amber,
-      ),
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: _showAddTaskDialog,
+            icon: Icon(Icons.add, color: Colors.black),
+            label: Text('Dodaj zadanie', style: TextStyle(color: Colors.black)),
+            backgroundColor: Colors.amber,
+          ),
+        );
+      },
     );
   }
 }
